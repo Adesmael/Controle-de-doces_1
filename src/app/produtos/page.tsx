@@ -4,6 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import React, { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,13 +18,23 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
 import type { Product } from "@/lib/types";
 import Image from "next/image";
 import { getStoredProducts, saveStoredProducts } from "@/lib/storage";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Define the schema for the product form
 const productFormSchema = z.object({
@@ -59,6 +70,9 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 export default function ProdutosPage() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   useEffect(() => {
     setProducts(getStoredProducts());
@@ -77,27 +91,91 @@ export default function ProdutosPage() {
     },
   });
 
+  const resetFormAndState = () => {
+    form.reset({
+      name: "",
+      category: "",
+      description: "",
+      price: 0,
+      stock: 0,
+      imageUrl: "",
+      dataAiHint: "",
+    });
+    setEditingProduct(null);
+  };
+
   function onSubmit(data: ProductFormValues) {
-    const newProduct: Product = {
-        id: String(Date.now()), 
-        name: data.name,
-        category: data.category,
-        description: data.description || "",
-        price: data.price,
-        stock: data.stock,
+    if (editingProduct) {
+      // Update existing product
+      const updatedProduct: Product = {
+        ...editingProduct,
+        ...data,
         imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
         dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
-    };
-    const updatedProducts = [newProduct, ...products];
-    setProducts(updatedProducts);
-    saveStoredProducts(updatedProducts);
-
-    toast({
-      title: "Produto Adicionado!",
-      description: `${data.name} foi adicionado ao catálogo.`,
-    });
-    form.reset();
+      };
+      const updatedProducts = products.map(p => p.id === editingProduct.id ? updatedProduct : p);
+      setProducts(updatedProducts);
+      saveStoredProducts(updatedProducts);
+      toast({
+        title: "Produto Atualizado!",
+        description: `${updatedProduct.name} foi atualizado com sucesso.`,
+      });
+    } else {
+      // Add new product
+      const newProduct: Product = {
+          id: String(Date.now()), 
+          ...data,
+          imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
+          dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
+      };
+      const updatedProducts = [newProduct, ...products];
+      setProducts(updatedProducts);
+      saveStoredProducts(updatedProducts);
+      toast({
+        title: "Produto Adicionado!",
+        description: `${data.name} foi adicionado ao catálogo.`,
+      });
+    }
+    resetFormAndState();
   }
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    form.reset({
+      name: product.name,
+      category: product.category,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl, // Clear placeholder if it was auto-generated
+      dataAiHint: product.dataAiHint,
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to form
+  };
+
+  const handleDeleteClick = (product: Product) => {
+    setProductToDelete(product);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteProduct = () => {
+    if (productToDelete) {
+      const updatedProducts = products.filter(p => p.id !== productToDelete.id);
+      setProducts(updatedProducts);
+      saveStoredProducts(updatedProducts);
+      toast({
+        title: "Produto Excluído!",
+        description: `${productToDelete.name} foi removido do catálogo.`,
+        variant: "destructive"
+      });
+    }
+    setShowDeleteConfirm(false);
+    setProductToDelete(null);
+    if (editingProduct && editingProduct.id === productToDelete?.id) {
+        resetFormAndState(); // Reset form if the product being edited was deleted
+    }
+  };
+  
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -106,11 +184,11 @@ export default function ProdutosPage() {
           <div className="flex items-center gap-3">
             <Package size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
-              Gerenciamento de Produtos
+              {editingProduct ? "Editar Produto" : "Gerenciamento de Produtos"}
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Adicione e gerencie os produtos do seu catálogo.
+            {editingProduct ? `Modifique os dados do produto ${editingProduct.name}.` : "Adicione e gerencie os produtos do seu catálogo."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -211,9 +289,16 @@ export default function ProdutosPage() {
                     </FormItem>
                   )}
               />
-              <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated">
-                <PlusCircle size={18} className="mr-2" /> Adicionar Produto
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 btn-animated flex-grow sm:flex-grow-0">
+                  {editingProduct ? <><Save size={18} className="mr-2" /> Salvar Alterações</> : <><PlusCircle size={18} className="mr-2" /> Adicionar Produto</>}
+                </Button>
+                {editingProduct && (
+                  <Button type="button" variant="outline" onClick={resetFormAndState} className="btn-animated flex-grow sm:flex-grow-0">
+                    <XCircle size={18} className="mr-2" /> Cancelar Edição
+                  </Button>
+                )}
+              </div>
             </form>
           </Form>
         </CardContent>
@@ -224,7 +309,7 @@ export default function ProdutosPage() {
             <CardHeader>
                 <CardTitle className="text-xl font-headline text-primary-foreground">Produtos Cadastrados ({products.length})</CardTitle>
                  <CardDescription className="text-primary-foreground/80">
-                    Visualize os produtos atualmente no seu catálogo.
+                    Visualize e gerencie os produtos atualmente no seu catálogo.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -249,16 +334,40 @@ export default function ProdutosPage() {
                                 <span className="text-muted-foreground">Estoque: {product.stock}</span>
                             </div>
                         </div>
-                         {/* Placeholder para botões de ação (editar/excluir) */}
-                        <div className="mt-2 sm:mt-0 flex-shrink-0">
-                           {/* <Button variant="outline" size="sm" className="mr-2">Editar</Button>
-                           <Button variant="destructive" size="sm">Excluir</Button> */}
+                        <div className="mt-2 sm:mt-0 flex-shrink-0 space-x-2 flex sm:flex-col sm:space-x-0 sm:space-y-2">
+                           <Button variant="outline" size="sm" onClick={() => handleEditProduct(product)} className="btn-animated w-full sm:w-auto">
+                             <Edit3 size={14} className="mr-1 sm:mr-2"/> Editar
+                           </Button>
+                           <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(product)} className="btn-animated w-full sm:w-auto">
+                             <Trash2 size={14} className="mr-1 sm:mr-2"/> Excluir
+                           </Button>
                         </div>
                     </Card>
                 ))}
             </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o produto "{productToDelete?.name}"? Esta ação não pode ser desfeita e removerá o produto permanentemente do catálogo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive hover:bg-destructive/90">
+              Excluir Produto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
+
+
+    
