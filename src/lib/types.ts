@@ -35,3 +35,32 @@ export interface Promotion {
   discountedProductId?: string;
   discountPercentage?: number;
 }
+
+export interface EntryFormValues {
+  date: Date;
+  supplier: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Entry extends EntryFormValues {
+  id: string;
+  totalValue: number;
+  productName?: string;
+}
+
+export interface SaleFormValues {
+  date: Date;
+  customer: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+}
+
+export interface Sale extends SaleFormValues {
+  id: string;
+  totalValue: number;
+  productName?: string;
+}
