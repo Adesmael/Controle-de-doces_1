@@ -16,7 +16,6 @@ export default function EstoquePage() {
     setProducts(getStoredProducts());
   }, []);
 
-  // Efeito para recarregar produtos se houver uma atualização no localStorage de outra aba/janela
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'bananaBlissApp_products') {

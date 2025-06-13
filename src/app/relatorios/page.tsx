@@ -9,18 +9,18 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import type { ChartConfig } from "@/components/ui/chart"
 import { getStoredSales, getStoredProducts } from "@/lib/storage";
 import type { Sale, Product } from "@/lib/types";
-import { format, subMonths, getMonth, getYear } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface MonthlySalesData {
   month: string;
   sales: number;
-  yearMonth: string; // for sorting e.g. "2023-01"
+  yearMonth: string; 
 }
 
 interface ProductSalesData {
   name: string;
-  sales: number; // units sold
+  sales: number; 
 }
 
 interface StockLevelData {
@@ -67,79 +67,73 @@ export default function RelatoriosPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadReportData = () => {
+    setIsLoading(true);
+    const sales = getStoredSales();
+    const products = getStoredProducts();
+
+    const monthlySalesAgg: { [key: string]: number } = {};
+    const sixMonthsAgo = subMonths(new Date(), 5); 
+
+    sales.forEach(sale => {
+      const saleDate = new Date(sale.date);
+      if (saleDate >= sixMonthsAgo) {
+        const monthYearKey = format(saleDate, "yyyy-MM");
+        monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
+      }
+    });
+    
+    const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
+      .map(([key, total]) => ({
+        yearMonth: key,
+        month: format(new Date(key + '-02'), "MMM/yy", { locale: ptBR }), 
+        sales: total,
+      }))
+      .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)); 
+    setMonthlySales(processedMonthlySales);
+
+    const productSalesAgg: { [productId: string]: number } = {};
+    sales.forEach(sale => {
+      productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
+    });
+
+    const processedTopProducts: ProductSalesData[] = Object.entries(productSalesAgg)
+      .map(([productId, quantity]) => {
+        const product = products.find(p => p.id === productId);
+        return {
+          name: product?.name || `Produto ID ${productId}`,
+          sales: quantity,
+        };
+      })
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5); 
+    setTopProducts(processedTopProducts);
+
+    const processedStockLevels: StockLevelData[] = products
+      .sort((a,b) => a.stock - b.stock) 
+      .slice(0, 5) 
+      .map(product => ({
+        name: product.name,
+        stock: product.stock,
+      }));
+    setStockLevels(processedStockLevels);
+    
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
+    const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
+    const lowStockItemsCount = products.filter(p => p.stock < 10 && p.stock > 0).length; 
+
+    setSummaryMetrics({
+      totalRevenue,
+      activeCustomers: uniqueCustomers.size,
+      lowStockItemsCount,
+    });
+
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    const loadReportData = () => {
-      setIsLoading(true);
-      const sales = getStoredSales();
-      const products = getStoredProducts();
-
-      // Process Monthly Sales (last 6 months)
-      const monthlySalesAgg: { [key: string]: number } = {};
-      const sixMonthsAgo = subMonths(new Date(), 5); // Current month + 5 previous months
-
-      sales.forEach(sale => {
-        const saleDate = new Date(sale.date);
-        if (saleDate >= sixMonthsAgo) {
-          const monthYearKey = format(saleDate, "yyyy-MM");
-          monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
-        }
-      });
-      
-      const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
-        .map(([key, total]) => ({
-          yearMonth: key,
-          month: format(new Date(key + '-02'), "MMM/yy", { locale: ptBR }), // Add day to make it valid date for format
-          sales: total,
-        }))
-        .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)); // Sort chronologically
-      setMonthlySales(processedMonthlySales);
-
-
-      // Process Top Products (by quantity sold)
-      const productSalesAgg: { [productId: string]: number } = {};
-      sales.forEach(sale => {
-        productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
-      });
-
-      const processedTopProducts: ProductSalesData[] = Object.entries(productSalesAgg)
-        .map(([productId, quantity]) => {
-          const product = products.find(p => p.id === productId);
-          return {
-            name: product?.name || `Produto ID ${productId}`,
-            sales: quantity,
-          };
-        })
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5); // Top 5
-      setTopProducts(processedTopProducts);
-
-      // Process Stock Levels (show a few products, e.g., lowest stock or first 5)
-      const processedStockLevels: StockLevelData[] = products
-        .sort((a,b) => a.stock - b.stock) // Show lowest stock first
-        .slice(0, 5) // Show 5 products
-        .map(product => ({
-          name: product.name,
-          stock: product.stock,
-        }));
-      setStockLevels(processedStockLevels);
-      
-      // Calculate Summary Metrics
-      const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
-      const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
-      const lowStockItemsCount = products.filter(p => p.stock < 10 && p.stock > 0).length; // Stock > 0 but < 10
-
-      setSummaryMetrics({
-        totalRevenue,
-        activeCustomers: uniqueCustomers.size,
-        lowStockItemsCount,
-      });
-
-      setIsLoading(false);
-    };
-
     loadReportData();
 
-    // Optional: Listen for storage changes to auto-update reports
     const handleStorageChange = (event: StorageEvent) => {
         if (event.key === 'bananaBlissApp_sales' || event.key === 'bananaBlissApp_products' || event.key === 'bananaBlissApp_entries') {
             loadReportData();
@@ -188,7 +182,7 @@ export default function RelatoriosPage() {
               </CardTitle>
               <CardDescription>Total de vendas nos últimos 6 meses.</CardDescription>
             </CardHeader>
-            <CardContent className="h-[350px]"> {/* Fixed height for consistency */}
+            <CardContent className="h-[350px]"> 
               {renderChartOrMessage(monthlySales,
                 <ChartContainer config={salesChartConfig} className="h-full w-full">
                   <BarChart accessibilityLayer data={monthlySales}>

@@ -66,7 +66,6 @@ export default function ConfiguracoesPage() {
       try {
         const text = e.target?.result as string;
         const jsonData = JSON.parse(text) as BackupData;
-        // Validar minimamente a estrutura do JSON aqui seria bom
         if (jsonData.products && jsonData.entries && jsonData.sales) {
           setPendingBackupData(jsonData);
           setShowRestoreConfirm(true);
@@ -84,7 +83,7 @@ export default function ConfiguracoesPage() {
       }
     };
     reader.readAsText(file);
-    event.target.value = ""; // Reset file input
+    event.target.value = ""; 
   };
   
   const confirmRestore = () => {
@@ -105,8 +104,7 @@ export default function ConfiguracoesPage() {
     }
     setShowRestoreConfirm(false);
     setPendingBackupData(null);
-    // Forçar um refresh ou emitir um evento para outras páginas recarregarem os dados
-    // window.location.reload(); // Simples, mas pode ser melhorado
+    // window.location.reload(); 
   };
 
 

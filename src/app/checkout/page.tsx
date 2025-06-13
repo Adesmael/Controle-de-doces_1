@@ -11,7 +11,7 @@ import { CheckCircle, ShoppingBag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {useEffect} from 'react';
 
-const TAX_RATE = 0.05; // Ensure this matches CartContext if used directly
+const TAX_RATE = 0.05; 
 
 export default function CheckoutPage() {
   const { cartItems, subtotal, taxes, total, clearCart, appliedPromotion, cartCount } = useCart();
@@ -31,11 +31,8 @@ export default function CheckoutPage() {
 
 
   const handleSubmitOrder = () => {
-    // Simulate order submission
-    const orderId = `BBT-${Date.now()}`; // Simple unique ID
+    const orderId = `BBT-${Date.now()}`; 
     
-    // For a real app, save order to database here
-    // For this example, we'll pass order details via localStorage (not ideal for production)
     const orderData = {
       id: orderId,
       items: cartItems,
@@ -57,7 +54,6 @@ export default function CheckoutPage() {
   };
 
   if (cartCount === 0) {
-    // This is a fallback, useEffect should redirect.
     return <div className="text-center p-8">Redirecionando... Seu carrinho está vazio.</div>;
   }
 

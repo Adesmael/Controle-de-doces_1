@@ -4,7 +4,7 @@ export interface Product {
   name: string;
   description?: string;
   price: number;
-  imageUrl: string; // Será obrigatório, com um placeholder se não fornecido pelo usuário
+  imageUrl: string; 
   stock: number;
   category: string;
   dataAiHint?: string;
@@ -12,23 +12,23 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
-  originalPrice?: number; // To store price before discount
+  originalPrice?: number; 
 }
 
 export interface Order {
   id: string;
   items: CartItem[];
   subtotal: number;
-  taxes: number; // Example tax, could be more complex
+  taxes: number; 
   total: number;
-  customerName?: string; // Optional, for simplicity
-  customerEmail?: string; // Optional
+  customerName?: string; 
+  customerEmail?: string; 
   promotionApplied?: {
     message: string;
     discountedProductId?: string;
     discountPercentage?: number;
   };
-  createdAt: Date | string; // Allow string for localStorage, convert on use
+  createdAt: Date | string; 
 }
 
 export interface Promotion {

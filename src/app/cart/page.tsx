@@ -14,7 +14,7 @@ import { generatePromotion } from '@/ai/flows/generate-promotion';
 import type { Promotion, Product as ProductType } from '@/lib/types';
 import PromotionDisplay from '@/components/PromotionDisplay';
 import { useToast } from '@/hooks/use-toast';
-import { getStoredProducts } from '@/lib/storage'; // To get current inventory
+import { getStoredProducts } from '@/lib/storage'; 
 
 export default function CartPage() {
   const { cartItems, subtotal, taxes, total, cartCount, clearCart, applyPromotion, removePromotion, appliedPromotion } = useCart();
@@ -23,20 +23,18 @@ export default function CartPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch promotion if cart is not empty, no promotion is applied, and not currently loading one.
     if (cartCount > 0 && !appliedPromotion && !isLoadingPromotion && !aiPromotion) {
       fetchPromotion();
     }
-    if (cartCount === 0 && aiPromotion) { // Clear AI promotion if cart becomes empty
+    if (cartCount === 0 && aiPromotion) { 
         setAiPromotion(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartCount, appliedPromotion]); // Re-evaluate when cartCount or appliedPromotion changes
+  }, [cartCount, appliedPromotion]); 
 
   const fetchPromotion = async () => {
     setIsLoadingPromotion(true);
     try {
-      // Mock user history for now
       const userPurchaseHistory = JSON.stringify([
         { productId: "1", quantity: 2, date: "2023-10-01" },
         { productId: "3", quantity: 1, date: "2023-10-15" },
@@ -44,7 +42,7 @@ export default function CartPage() {
       
       const currentProducts = getStoredProducts();
       const inventoryForAI: ProductType[] = currentProducts
-        .filter(p => p.stock > 0) // Only products with stock
+        .filter(p => p.stock > 0) 
         .map(p => ({ id: p.id, name: p.name, stock: p.stock, price: p.price, category: p.category }));
 
       const cartItemsForAI = cartItems.map(item => ({
@@ -55,7 +53,7 @@ export default function CartPage() {
       }));
 
       if (inventoryForAI.length === 0) {
-        setAiPromotion(null); // No products in stock to promote
+        setAiPromotion(null); 
         setIsLoadingPromotion(false);
         return;
       }
@@ -87,7 +85,7 @@ export default function CartPage() {
   
   const handleClearCart = () => {
     clearCart();
-    setAiPromotion(null); // Clear AI suggestion when cart is cleared
+    setAiPromotion(null); 
     toast({
       title: "Carrinho Esvaziado",
       description: "Todos os itens foram removidos do seu carrinho.",
@@ -136,18 +134,18 @@ export default function CartPage() {
               Buscando ofertas especiais...
             </div>
           )}
-          {!isLoadingPromotion && aiPromotion && !appliedPromotion && ( // Show AI promo only if not already applied
+          {!isLoadingPromotion && aiPromotion && !appliedPromotion && ( 
             <PromotionDisplay 
               promotion={aiPromotion} 
               onApply={(promo) => {
                 applyPromotion(promo);
-                setAiPromotion(null); // Clear AI suggestion after applying
+                setAiPromotion(null); 
               }}
-              onRemove={removePromotion} // This case might not be hit if only shown when not applied
-              isApplied={false} // It's not applied yet if we are showing this version
+              onRemove={removePromotion} 
+              isApplied={false} 
             />
           )}
-           {!isLoadingPromotion && !aiPromotion && cartCount > 0 && !appliedPromotion && ( // No AI promo and no manual promo
+           {!isLoadingPromotion && !aiPromotion && cartCount > 0 && !appliedPromotion && ( 
              <Alert variant="default" className="bg-secondary/50 border-secondary">
               <AlertTriangle className="h-4 w-4 text-secondary-foreground" />
               <AlertTitle>Sem ofertas extras</AlertTitle>
@@ -157,7 +155,7 @@ export default function CartPage() {
             </Alert>
           )}
 
-          <Card className="shadow-lg sticky top-24"> {/* Sticky summary card */}
+          <Card className="shadow-lg sticky top-24"> 
             <CardHeader>
               <CardTitle className="text-xl font-headline">Resumo do Pedido</CardTitle>
             </CardHeader>
@@ -169,12 +167,11 @@ export default function CartPage() {
               {appliedPromotion && (
                 <div className="flex justify-between text-green-600">
                   <span>Desconto Promocional:</span>
-                  {/* This is a simplified display; actual discount value might need calculation in CartContext if not already handled by item price adjustment */}
                   <span className="font-medium text-sm">{appliedPromotion.promotionMessage.substring(0,25)}...</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span>Taxas ({(0.05 * 100).toFixed(0)}%):</span> {/* Direct use of TAX_RATE constant */}
+                <span>Taxas ({(0.05 * 100).toFixed(0)}%):</span> 
                 <span className="font-medium">R$ {taxes.toFixed(2)}</span>
               </div>
               <Separator />
@@ -193,7 +190,7 @@ export default function CartPage() {
                 <Link href="/">Continuar Comprando</Link>
               </Button>
               {appliedPromotion && (
-                <Button variant="link" onClick={() => {removePromotion(); fetchPromotion(); /* try to get a new one */}} className="text-xs text-destructive">
+                <Button variant="link" onClick={() => {removePromotion(); fetchPromotion(); }} className="text-xs text-destructive">
                   Remover promoção aplicada
                 </Button>
               )}

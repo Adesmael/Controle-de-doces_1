@@ -29,7 +29,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import { cn } from "@/lib/utils";
 import { getStoredProducts, saveStoredProducts, getStoredEntries, saveStoredEntries } from "@/lib/storage";
 
-// Schema for the entry form
 const entryFormSchema = z.object({
   date: z.date({
     required_error: "A data da entrada é obrigatória.",
@@ -101,11 +100,10 @@ export default function EntradaPage() {
     setEntries(updatedEntries);
     saveStoredEntries(updatedEntries);
 
-    // Update product stock
     const updatedProducts = currentProducts.map(p => 
       p.id === data.productId ? { ...p, stock: p.stock + data.quantity } : p
     );
-    setProducts(updatedProducts); // Update local state for UI consistency if needed elsewhere on this page
+    setProducts(updatedProducts); 
     saveStoredProducts(updatedProducts);
 
 

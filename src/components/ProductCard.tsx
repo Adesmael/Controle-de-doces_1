@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { MinusCircle, PlusCircle, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getStoredProducts } from '@/lib/storage'; // Para obter o estoque real
+import { getStoredProducts } from '@/lib/storage'; 
 
 interface ProductCardProps {
   product: Product;
@@ -22,14 +22,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product: initialProduct }) =>
   const { toast } = useToast();
   const [currentProduct, setCurrentProduct] = useState<Product>(initialProduct);
 
-  // Atualiza o estado do produto (principalmente o estoque) a partir do localStorage
   useEffect(() => {
     const allProducts = getStoredProducts();
     const updatedProduct = allProducts.find(p => p.id === initialProduct.id) || initialProduct;
     setCurrentProduct(updatedProduct);
   }, [initialProduct]);
 
-  // Observa mudanças no localStorage para atualizar o estoque em tempo real
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'bananaBlissApp_products') {
@@ -78,7 +76,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product: initialProduct }) =>
         variant: "destructive",
       });
     }
-    setQuantity(1); // Reset quantity after attempting to add to cart
+    setQuantity(1); 
   };
 
   const incrementQuantity = () => {

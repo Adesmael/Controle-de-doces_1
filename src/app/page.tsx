@@ -14,7 +14,6 @@ export default function HomePage() {
     setProducts(getStoredProducts());
   }, []);
   
-  // Observa mudanças no localStorage para atualizar os produtos em tempo real
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'bananaBlissApp_products') {

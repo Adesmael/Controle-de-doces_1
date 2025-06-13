@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      { // Added for QR Code API
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+        port: '',
+        pathname: '/v1/create-qr-code/**',
+      }
     ],
   },
 };

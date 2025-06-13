@@ -23,15 +23,11 @@ export default function ConfirmationPage() {
       const storedOrder = localStorage.getItem('latestOrder');
       if (storedOrder) {
         const parsedOrder: Order = JSON.parse(storedOrder);
-        // Check if the stored order matches the current orderId from URL
         if (parsedOrder.id === orderId) {
           setOrder(parsedOrder);
-          // Generate QR code URL (example using a public API)
           const orderDataForQR = `Pedido: ${parsedOrder.id}, Total: R$${parsedOrder.total.toFixed(2)}, Itens: ${parsedOrder.items.length}`;
           setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(orderDataForQR)}`);
         } else {
-          // If orderId doesn't match, it might be an old order or direct navigation.
-          // For this example, we clear it. A real app would fetch from a backend.
           setOrder(null);
         }
       }
@@ -108,7 +104,6 @@ export default function ConfirmationPage() {
           <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto btn-animated">
             <Printer size={18} className="mr-2" /> Imprimir Ticket (Simulado)
           </Button>
-          {/* Placeholder for PDF download */}
           <Button variant="outline" className="w-full sm:w-auto btn-animated" disabled>
             <Download size={18} className="mr-2" /> Baixar PDF (Em breve)
           </Button>

@@ -1,7 +1,6 @@
 
 import type { Product } from './types';
 
-// Renomeado para initialProductsData para clareza e para ser usado como fallback
 export const initialProductsData: Product[] = [
   {
     id: '1',

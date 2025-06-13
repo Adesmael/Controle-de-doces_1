@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/lib/types";
@@ -33,10 +33,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; 
 
-// Define the schema for the product form
 const productFormSchema = z.object({
   name: z.string().min(2, {
     message: "O nome do produto deve ter pelo menos 2 caracteres.",
@@ -106,7 +104,6 @@ export default function ProdutosPage() {
 
   function onSubmit(data: ProductFormValues) {
     if (editingProduct) {
-      // Update existing product
       const updatedProduct: Product = {
         ...editingProduct,
         ...data,
@@ -121,7 +118,6 @@ export default function ProdutosPage() {
         description: `${updatedProduct.name} foi atualizado com sucesso.`,
       });
     } else {
-      // Add new product
       const newProduct: Product = {
           id: String(Date.now()), 
           ...data,
@@ -147,10 +143,10 @@ export default function ProdutosPage() {
       description: product.description,
       price: product.price,
       stock: product.stock,
-      imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl, // Clear placeholder if it was auto-generated
+      imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl, 
       dataAiHint: product.dataAiHint,
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
 
   const handleDeleteClick = (product: Product) => {
@@ -172,7 +168,7 @@ export default function ProdutosPage() {
     setShowDeleteConfirm(false);
     setProductToDelete(null);
     if (editingProduct && editingProduct.id === productToDelete?.id) {
-        resetFormAndState(); // Reset form if the product being edited was deleted
+        resetFormAndState(); 
     }
   };
   

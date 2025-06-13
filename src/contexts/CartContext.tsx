@@ -3,13 +3,13 @@
 
 import type { CartItem, Product, Promotion } from '@/lib/types';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { getStoredProducts } from '@/lib/storage'; // Para obter o estoque atualizado
+import { getStoredProducts } from '@/lib/storage'; 
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (product: Product, quantity: number) => boolean; // Retorna true se adicionado, false se estoque insuficiente
+  addToCart: (product: Product, quantity: number) => boolean; 
   removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => boolean; // Retorna true se atualizado, false se estoque insuficiente
+  updateQuantity: (productId: string, quantity: number) => boolean; 
   clearCart: () => void;
   cartCount: number;
   subtotal: number;
@@ -20,7 +20,7 @@ interface CartContextType {
   removePromotion: () => void;
 }
 
-const TAX_RATE = 0.05; // Example 5% tax rate
+const TAX_RATE = 0.05; 
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -83,7 +83,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const addToCart = (product: Product, quantity: number): boolean => {
-    // Obter estoque atualizado do localStorage
     const allProducts = getStoredProducts();
     const currentProductInfo = allProducts.find(p => p.id === product.id);
     const stockAvailable = currentProductInfo ? currentProductInfo.stock : product.stock;
@@ -94,7 +93,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const existingItem = prevItems.find(item => item.id === product.id);
       if (existingItem) {
         const newQuantity = Math.min(existingItem.quantity + quantity, stockAvailable);
-        if (newQuantity < existingItem.quantity + quantity) success = false; // Não foi possível adicionar toda a quantidade
+        if (newQuantity < existingItem.quantity + quantity) success = false; 
         return prevItems.map(item =>
           item.id === product.id
             ? { ...item, quantity: newQuantity }
@@ -105,7 +104,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const quantityToAdd = Math.min(quantity, stockAvailable);
       if (quantityToAdd < quantity) success = false;
 
-      if (quantityToAdd <= 0) { // Cannot add if stock is 0 or less
+      if (quantityToAdd <= 0) { 
           success = false;
           return prevItems;
       }
@@ -116,7 +115,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         originalPrice = product.price;
         price = product.price * (1 - appliedPromotion.discountPercentage);
       }
-      return [...prevItems, { ...product, quantity: quantityToAdd, price, originalPrice, stock: stockAvailable }]; // Passar stock atualizado
+      return [...prevItems, { ...product, quantity: quantityToAdd, price, originalPrice, stock: stockAvailable }]; 
     });
     return success;
   };
@@ -128,13 +127,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateQuantity = (productId: string, quantity: number): boolean => {
     const allProducts = getStoredProducts();
     const productInfo = allProducts.find(p => p.id === productId);
-    const stockAvailable = productInfo ? productInfo.stock : 0; // Default to 0 if somehow not found
+    const stockAvailable = productInfo ? productInfo.stock : 0; 
 
     let success = true;
     setCartItems(prevItems =>
       prevItems.map(item => {
         if (item.id === productId) {
-          const newQuantity = Math.max(0, Math.min(quantity, stockAvailable, item.stock)); // Consider item.stock as cart's view of stock
+          const newQuantity = Math.max(0, Math.min(quantity, stockAvailable, item.stock)); 
           if (newQuantity < quantity) success = false;
           return { ...item, quantity: newQuantity };
         }

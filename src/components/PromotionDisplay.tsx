@@ -3,7 +3,6 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/contexts/CartContext";
 import type { Promotion } from "@/lib/types";
 import { Gift, Sparkles, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

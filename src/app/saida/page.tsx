@@ -44,7 +44,7 @@ const saleFormSchema = z.object({
   quantity: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  unitPrice: z.coerce.number().positive({ // This might be auto-filled but can be overridden
+  unitPrice: z.coerce.number().positive({ 
     message: "O valor unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
   discount: z.coerce.number().nonnegative({
@@ -71,7 +71,7 @@ export default function SaidaPage() {
       customer: "",
       productId: "",
       quantity: 1,
-      unitPrice: 0, // Will be set on product selection
+      unitPrice: 0, 
       discount: 0,
     },
   });
@@ -93,7 +93,7 @@ export default function SaidaPage() {
       form.setValue("unitPrice", 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedProductId, products]); // form.setValue should not be in dependency array
+  }, [watchedProductId, products]); 
 
   useEffect(() => {
     const quantity = watchedQuantity || 0;
@@ -129,11 +129,10 @@ export default function SaidaPage() {
     setSales(updatedSales);
     saveStoredSales(updatedSales);
 
-    // Update product stock
     const updatedProducts = currentProducts.map(p => 
       p.id === data.productId ? { ...p, stock: p.stock - data.quantity } : p
     );
-    setProducts(updatedProducts); // Update local state for Select items
+    setProducts(updatedProducts); 
     saveStoredProducts(updatedProducts);
 
     toast({
