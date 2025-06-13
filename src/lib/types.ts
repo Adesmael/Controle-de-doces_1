@@ -1,11 +1,11 @@
 export interface Product {
   id: string;
   name: string;
-  description?: string; // Made description optional for simpler product creation
+  description?: string;
   price: number;
-  imageUrl: string;
+  imageUrl: string; // Será obrigatório, com um placeholder se não fornecido pelo usuário
   stock: number;
-  category: string; // e.g., 'Doce de Banana Tradicional', 'Doce de Banana com Chocolate'
+  category: string;
   dataAiHint?: string;
 }
 
