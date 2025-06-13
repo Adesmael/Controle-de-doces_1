@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,9 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Product } from "@/lib/types";
 import Image from "next/image";
+import { getStoredProducts, saveStoredProducts } from "@/lib/storage";
 
 // Define the schema for the product form
 const productFormSchema = z.object({
@@ -54,16 +56,13 @@ const productFormSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
 
-// Dummy list to store products for now
-const initialProducts: Product[] = [
-    { id: "1", name: "Doce de Banana Cremoso", category: "Tradicional", price: 15.00, stock: 100, imageUrl: 'https://placehold.co/600x400.png', description: "O clássico doce de banana cremoso.", dataAiHint: "banana sweet" },
-    { id: "2", name: "Bananada Barra", category: "Barra", price: 12.50, stock: 80, imageUrl: 'https://placehold.co/600x400.png', description: "Delicioso doce de banana em barra.", dataAiHint: "banana candy" },
-];
-
-
 export default function ProdutosPage() {
   const { toast } = useToast();
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+  }, []);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -80,7 +79,7 @@ export default function ProdutosPage() {
 
   function onSubmit(data: ProductFormValues) {
     const newProduct: Product = {
-        id: String(Date.now()), // simple unique ID
+        id: String(Date.now()), 
         name: data.name,
         category: data.category,
         description: data.description || "",
@@ -89,7 +88,9 @@ export default function ProdutosPage() {
         imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
         dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
     };
-    setProducts(prev => [newProduct, ...prev]); // Add to the beginning of the list
+    const updatedProducts = [newProduct, ...products];
+    setProducts(updatedProducts);
+    saveStoredProducts(updatedProducts);
 
     toast({
       title: "Produto Adicionado!",
@@ -162,7 +163,7 @@ export default function ProdutosPage() {
                     <FormItem>
                       <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Preço Unitário (R$)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="15.99" {...field} step="0.01" />
+                        <Input type="number" placeholder="15.99" {...field} step="0.01" min="0.01"/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -175,7 +176,7 @@ export default function ProdutosPage() {
                     <FormItem>
                       <FormLabel className="text-primary-foreground/90 flex items-center"><Box size={16} className="mr-2"/>Quantidade em Estoque</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="100" {...field} step="1" />
+                        <Input type="number" placeholder="100" {...field} step="1" min="0"/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

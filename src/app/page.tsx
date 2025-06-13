@@ -1,8 +1,33 @@
+
+"use client";
+
 import ProductCard from '@/components/ProductCard';
-import { products } from '@/lib/products';
 import { Banana } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getStoredProducts } from '@/lib/storage';
+import type { Product } from '@/lib/types';
 
 export default function HomePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+  }, []);
+  
+  // Observa mudanças no localStorage para atualizar os produtos em tempo real
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'bananaBlissApp_products') {
+        setProducts(getStoredProducts());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+
   return (
     <div className="space-y-8">
       <section className="text-center py-8 bg-gradient-to-r from-primary/20 via-background to-primary/20 rounded-lg shadow-sm">

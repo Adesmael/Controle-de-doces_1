@@ -1,13 +1,15 @@
+
 "use client";
 
 import type { CartItem, Product, Promotion } from '@/lib/types';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { getStoredProducts } from '@/lib/storage'; // Para obter o estoque atualizado
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (product: Product, quantity: number) => void;
+  addToCart: (product: Product, quantity: number) => boolean; // Retorna true se adicionado, false se estoque insuficiente
   removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  updateQuantity: (productId: string, quantity: number) => boolean; // Retorna true se atualizado, false se estoque insuficiente
   clearCart: () => void;
   cartCount: number;
   subtotal: number;
@@ -26,7 +28,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
 
-  // Load cart from localStorage on initial render
   useEffect(() => {
     const storedCart = localStorage.getItem('bananaBlissCart');
     if (storedCart) {
@@ -38,7 +39,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('bananaBlissCart', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -54,14 +54,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const applyPromotion = (promotion: Promotion) => {
     setAppliedPromotion(promotion);
-    // Re-calculate prices if a discount is applied
     setCartItems(prevItems =>
       prevItems.map(item => {
         if (promotion.discountedProductId === item.id && promotion.discountPercentage) {
+          const originalPrice = item.originalPrice || item.price;
           return {
             ...item,
-            originalPrice: item.originalPrice || item.price, // Store original if not already stored
-            price: (item.originalPrice || item.price) * (1 - promotion.discountPercentage),
+            originalPrice: originalPrice,
+            price: originalPrice * (1 - promotion.discountPercentage),
           };
         }
         return item;
@@ -71,7 +71,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const removePromotion = () => {
     setAppliedPromotion(null);
-    // Revert prices to original
     setCartItems(prevItems =>
       prevItems.map(item => {
         if (item.originalPrice) {
@@ -83,46 +82,75 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
 
-  const addToCart = (product: Product, quantity: number) => {
+  const addToCart = (product: Product, quantity: number): boolean => {
+    // Obter estoque atualizado do localStorage
+    const allProducts = getStoredProducts();
+    const currentProductInfo = allProducts.find(p => p.id === product.id);
+    const stockAvailable = currentProductInfo ? currentProductInfo.stock : product.stock;
+
+    let success = true;
+
     setCartItems(prevItems => {
       const existingItem = prevItems.find(item => item.id === product.id);
       if (existingItem) {
+        const newQuantity = Math.min(existingItem.quantity + quantity, stockAvailable);
+        if (newQuantity < existingItem.quantity + quantity) success = false; // Não foi possível adicionar toda a quantidade
         return prevItems.map(item =>
           item.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + quantity, product.stock) }
+            ? { ...item, quantity: newQuantity }
             : item
         );
       }
-      // If promotion is active and applies to this product, apply discount
+      
+      const quantityToAdd = Math.min(quantity, stockAvailable);
+      if (quantityToAdd < quantity) success = false;
+
+      if (quantityToAdd <= 0) { // Cannot add if stock is 0 or less
+          success = false;
+          return prevItems;
+      }
+
       let price = product.price;
       let originalPrice = undefined;
       if (appliedPromotion && appliedPromotion.discountedProductId === product.id && appliedPromotion.discountPercentage) {
         originalPrice = product.price;
         price = product.price * (1 - appliedPromotion.discountPercentage);
       }
-      return [...prevItems, { ...product, quantity, price, originalPrice }];
+      return [...prevItems, { ...product, quantity: quantityToAdd, price, originalPrice, stock: stockAvailable }]; // Passar stock atualizado
     });
+    return success;
   };
 
   const removeFromCart = (productId: string) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number): boolean => {
+    const allProducts = getStoredProducts();
+    const productInfo = allProducts.find(p => p.id === productId);
+    const stockAvailable = productInfo ? productInfo.stock : 0; // Default to 0 if somehow not found
+
+    let success = true;
     setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === productId ? { ...item, quantity: Math.max(0, Math.min(quantity, item.stock)) } : item
-      ).filter(item => item.quantity > 0) // Remove if quantity is 0
+      prevItems.map(item => {
+        if (item.id === productId) {
+          const newQuantity = Math.max(0, Math.min(quantity, stockAvailable, item.stock)); // Consider item.stock as cart's view of stock
+          if (newQuantity < quantity) success = false;
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      }
+      ).filter(item => item.quantity > 0) 
     );
+    return success;
   };
 
   const clearCart = () => {
     setCartItems([]);
-    removePromotion();
+    removePromotion(); 
   };
 
   const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
-
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxes = subtotal * TAX_RATE;
   const total = subtotal + taxes;

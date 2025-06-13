@@ -21,13 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { products as allProducts } from "@/lib/products";
 import type { Product, Sale, SaleFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { getStoredProducts, saveStoredProducts, getStoredSales, saveStoredSales } from "@/lib/storage";
 
 const saleFormSchema = z.object({
   date: z.date({
@@ -44,7 +44,7 @@ const saleFormSchema = z.object({
   quantity: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  unitPrice: z.coerce.number().positive({
+  unitPrice: z.coerce.number().positive({ // This might be auto-filled but can be overridden
     message: "O valor unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
   discount: z.coerce.number().nonnegative({
@@ -56,8 +56,13 @@ const saleFormSchema = z.object({
 export default function SaidaPage() {
   const { toast } = useToast();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
-  const [selectedProductPrice, setSelectedProductPrice] = useState<number>(0);
+  
+  useEffect(() => {
+    setProducts(getStoredProducts());
+    setSales(getStoredSales());
+  }, []);
 
   const form = useForm<SaleFormValues>({
     resolver: zodResolver(saleFormSchema),
@@ -66,7 +71,7 @@ export default function SaidaPage() {
       customer: "",
       productId: "",
       quantity: 1,
-      unitPrice: 0,
+      unitPrice: 0, // Will be set on product selection
       discount: 0,
     },
   });
@@ -78,19 +83,17 @@ export default function SaidaPage() {
 
   useEffect(() => {
     if (watchedProductId) {
-      const product = allProducts.find(p => p.id === watchedProductId);
+      const product = products.find(p => p.id === watchedProductId);
       if (product) {
-        setSelectedProductPrice(product.price);
         form.setValue("unitPrice", product.price); 
       } else {
-        setSelectedProductPrice(0);
         form.setValue("unitPrice", 0);
       }
     } else {
-      setSelectedProductPrice(0);
       form.setValue("unitPrice", 0);
     }
-  }, [watchedProductId, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedProductId, products]); // form.setValue should not be in dependency array
 
   useEffect(() => {
     const quantity = watchedQuantity || 0;
@@ -102,7 +105,8 @@ export default function SaidaPage() {
   
 
   function onSubmit(data: SaleFormValues) {
-    const selectedProduct = allProducts.find(p => p.id === data.productId);
+    const currentProducts = getStoredProducts();
+    const selectedProduct = currentProducts.find(p => p.id === data.productId);
 
     if (!selectedProduct) {
         toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
@@ -119,16 +123,22 @@ export default function SaidaPage() {
       id: String(Date.now()), 
       ...data,
       totalValue: parseFloat(Math.max(0, totalValue).toFixed(2)),
-      productName: selectedProduct?.name || "Produto Desconhecido",
+      productName: selectedProduct.name,
     };
-    setSales(prev => [newSale, ...prev]);
+    const updatedSales = [newSale, ...sales];
+    setSales(updatedSales);
+    saveStoredSales(updatedSales);
 
-    // TODO: Implementar lógica de atualização de estoque aqui.
-    // Por agora, apenas exibimos a mensagem.
-    const updatedStock = selectedProduct.stock - data.quantity;
+    // Update product stock
+    const updatedProducts = currentProducts.map(p => 
+      p.id === data.productId ? { ...p, stock: p.stock - data.quantity } : p
+    );
+    setProducts(updatedProducts); // Update local state for Select items
+    saveStoredProducts(updatedProducts);
+
     toast({
       title: "Saída Registrada!",
-      description: `Saída de ${data.quantity}x ${selectedProduct?.name || 'produto'} para ${data.customer} registrada. Novo estoque: ${updatedStock}. (Simulado)`,
+      description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${data.customer} registrada. Estoque atualizado.`,
     });
 
     form.reset({
@@ -140,7 +150,6 @@ export default function SaidaPage() {
       discount: 0,
     });
     setCalculatedTotalValue(0);
-    setSelectedProductPrice(0);
   }
 
   return (
@@ -223,14 +232,14 @@ export default function SaidaPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><Package size={16} className="mr-2"/>Produto</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um produto" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {allProducts.map((product) => (
+                        {products.map((product) => (
                           <SelectItem key={product.id} value={product.id} disabled={product.stock <= 0}>
                             {product.name} (Estoque: {product.stock})
                           </SelectItem>
@@ -323,7 +332,7 @@ export default function SaidaPage() {
               <TableBody>
                 {sales.map((sale) => (
                   <TableRow key={sale.id}>
-                    <TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell>{format(new Date(sale.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{sale.customer}</TableCell>
                     <TableCell>{sale.productName}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>

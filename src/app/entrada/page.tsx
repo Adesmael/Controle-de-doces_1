@@ -21,13 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { products as allProducts } from "@/lib/products";
-import type { Product } from "@/lib/types";
+import type { Product, Entry, EntryFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { getStoredProducts, saveStoredProducts, getStoredEntries, saveStoredEntries } from "@/lib/storage";
 
 // Schema for the entry form
 const entryFormSchema = z.object({
@@ -50,18 +50,16 @@ const entryFormSchema = z.object({
   }).transform(val => parseFloat(val.toFixed(2))),
 });
 
-type EntryFormValues = z.infer<typeof entryFormSchema>;
-
-interface Entry extends EntryFormValues {
-  id: string;
-  totalValue: number;
-  productName?: string;
-}
-
 export default function EntradaPage() {
   const { toast } = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+    setEntries(getStoredEntries());
+  }, []);
 
   const form = useForm<EntryFormValues>({
     resolver: zodResolver(entryFormSchema),
@@ -84,18 +82,36 @@ export default function EntradaPage() {
   }, [watchedQuantity, watchedUnitPrice]);
 
   function onSubmit(data: EntryFormValues) {
-    const selectedProduct = allProducts.find(p => p.id === data.productId);
+    const currentProducts = getStoredProducts();
+    const selectedProduct = currentProducts.find(p => p.id === data.productId);
+
+    if (!selectedProduct) {
+      toast({ title: "Erro", description: "Produto selecionado não encontrado.", variant: "destructive"});
+      return;
+    }
+
     const newEntry: Entry = {
       id: String(Date.now()), 
       ...data,
       totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)),
-      productName: selectedProduct?.name || "Produto Desconhecido",
+      productName: selectedProduct.name,
     };
-    setEntries(prev => [newEntry, ...prev]);
+    
+    const updatedEntries = [newEntry, ...entries];
+    setEntries(updatedEntries);
+    saveStoredEntries(updatedEntries);
+
+    // Update product stock
+    const updatedProducts = currentProducts.map(p => 
+      p.id === data.productId ? { ...p, stock: p.stock + data.quantity } : p
+    );
+    setProducts(updatedProducts); // Update local state for UI consistency if needed elsewhere on this page
+    saveStoredProducts(updatedProducts);
+
 
     toast({
       title: "Entrada Registrada!",
-      description: `Entrada de ${data.quantity}x ${selectedProduct?.name || 'produto'} do fornecedor ${data.supplier} registrada.`,
+      description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${data.supplier} registrada. Estoque atualizado.`,
     });
     form.reset({
       date: new Date(),
@@ -194,7 +210,7 @@ export default function EntradaPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {allProducts.map((product) => (
+                        {products.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
                             {product.name}
                           </SelectItem>
@@ -273,7 +289,7 @@ export default function EntradaPage() {
               <TableBody>
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell>{format(new Date(entry.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{entry.supplier}</TableCell>
                     <TableCell>{entry.productName}</TableCell>
                     <TableCell className="text-right">{entry.quantity}</TableCell>
@@ -290,5 +306,3 @@ export default function EntradaPage() {
     </div>
   );
 }
-
-    

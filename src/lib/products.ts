@@ -1,6 +1,7 @@
 import type { Product } from './types';
 
-export const products: Product[] = [
+// Renomeado para initialProductsData para clareza e para ser usado como fallback
+export const initialProductsData: Product[] = [
   {
     id: '1',
     name: 'Doce de Banana Cremoso Tradicional',

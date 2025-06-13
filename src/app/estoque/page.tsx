@@ -3,27 +3,37 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { products as allProducts } from "@/lib/products";
 import type { Product } from "@/lib/types";
 import { LayoutGrid, PackageSearch, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { getStoredProducts } from "@/lib/storage";
 
 export default function EstoquePage() {
-  // No momento, estamos lendo diretamente de `allProducts`.
-  // Para um estoque dinâmico, isso precisaria ser gerenciado por um estado global
-  // ou ser carregado de um backend/localStorage que é atualizado pelas entradas/saídas.
-  const [products, setProducts] = useState<Product[]>(allProducts);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  // Efeito para simular a atualização da lista se `allProducts` mudasse (não vai mudar neste exemplo estático)
   useEffect(() => {
-    setProducts(allProducts);
+    setProducts(getStoredProducts());
   }, []);
+
+  // Efeito para recarregar produtos se houver uma atualização no localStorage de outra aba/janela
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'bananaBlissApp_products') {
+        setProducts(getStoredProducts());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
 
   const getStockIndicatorColor = (stock: number) => {
     if (stock === 0) return "text-destructive";
-    if (stock < 10) return "text-orange-500"; // Usando cor direta Tailwind aqui para simplicidade
-    return "text-green-600"; // Usando cor direta Tailwind aqui para simplicidade
+    if (stock < 10) return "text-orange-500"; 
+    return "text-green-600"; 
   };
 
   return (
@@ -73,6 +83,7 @@ export default function EstoquePage() {
                     <TableCell className={`text-right font-bold ${getStockIndicatorColor(product.stock)}`}>
                       {product.stock}
                       {product.stock > 0 && product.stock < 10 && <AlertTriangle className="inline-block ml-1 h-4 w-4" />}
+                      {product.stock === 0 && <AlertTriangle className="inline-block ml-1 h-4 w-4 text-destructive" />}
                     </TableCell>
                   </TableRow>
                 ))}
