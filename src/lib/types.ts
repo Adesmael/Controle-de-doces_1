@@ -1,7 +1,7 @@
 export interface Product {
   id: string;
   name: string;
-  description: string;
+  description?: string; // Made description optional for simpler product creation
   price: number;
   imageUrl: string;
   stock: number;
