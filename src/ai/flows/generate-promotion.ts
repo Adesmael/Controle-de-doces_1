@@ -75,11 +75,11 @@ const prompt = ai.definePrompt({
   4.  Promotion Strategy:
       *   The promotion should be appealing and easy to understand.
       *   If offering a discount, select a specific product ID from the 'currentInventory' and a reasonable discount percentage (e.g., 10% to 25%). Avoid very high discounts unless there's a strong reason (e.g., clearing old stock, which is not explicitly stated here).
-      *   The ` + "`promotionMessage`" + ` should clearly state the offer. For example: "We noticed you love our traditional sweets! Add a 'Doce de Banana com Chocolate' to your order and get 15% off on it!" or "Complete your order now and get 10% off 'Geleia de Banana Artesanal'!"
-      *   If no specific product discount is suitable, create a general encouraging message. In this case, ` + "`discountedProductId`" + ` and ` + "`discountPercentage`" + ` should be omitted. For example: "Your cart is looking delicious! Complete your sweet journey with Banana Bliss today."
+      *   The \`promotionMessage\` should clearly state the offer. For example: "We noticed you love our traditional sweets! Add a 'Doce de Banana com Chocolate' to your order and get 15% off on it!" or "Complete your order now and get 10% off 'Geleia de Banana Artesanal'!"
+      *   If no specific product discount is suitable, create a general encouraging message. In this case, \`discountedProductId\` and \`discountPercentage\` should be omitted. For example: "Your cart is looking delicious! Complete your sweet journey with Banana Bliss today."
 
   Output Format:
-  Return a JSON object matching the specified output schema. Ensure ` + "`discountedProductId`" + ` (if present) is a valid ID from the ` + "`currentInventory`" + ` list. If ` + "`discountPercentage`" + ` is provided, ` + "`discountedProductId`" + ` must also be provided.
+  Return a JSON object matching the specified output schema. Ensure \`discountedProductId\` (if present) is a valid ID from the \`currentInventory\` list. If \`discountPercentage\` is provided, \`discountedProductId\` must also be provided.
   The promotion message should be in Brazilian Portuguese.
 `,
 });

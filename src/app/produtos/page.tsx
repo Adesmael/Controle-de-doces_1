@@ -368,6 +368,3 @@ export default function ProdutosPage() {
     </div>
   );
 }
-
-
-    

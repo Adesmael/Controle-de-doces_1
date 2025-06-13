@@ -1,3 +1,4 @@
+
 const Footer = () => {
   return (
     <footer className="bg-muted text-muted-foreground py-6 text-center">

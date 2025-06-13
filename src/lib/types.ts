@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -27,7 +28,7 @@ export interface Order {
     discountedProductId?: string;
     discountPercentage?: number;
   };
-  createdAt: Date;
+  createdAt: Date | string; // Allow string for localStorage, convert on use
 }
 
 export interface Promotion {

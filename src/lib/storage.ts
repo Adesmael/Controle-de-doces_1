@@ -1,3 +1,4 @@
+
 import type { Product, Entry, Sale } from './types';
 import { initialProductsData } from './products'; // Alterado para o nome correto do arquivo/variável
 
