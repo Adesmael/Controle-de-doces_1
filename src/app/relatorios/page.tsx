@@ -1,21 +1,38 @@
 
 "use client"
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, AlertTriangle } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { BarChart3, TrendingUp, Package, Users, DollarSign, AlertTriangle, Info } from "lucide-react";
+import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
+import { getStoredSales, getStoredProducts } from "@/lib/storage";
+import type { Sale, Product } from "@/lib/types";
+import { format, subMonths, getMonth, getYear } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// Dados mockados para os gráficos
-const salesData = [
-  { month: "Jan", sales: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "Fev", sales: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "Mar", sales: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "Abr", sales: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "Mai", sales: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "Jun", sales: Math.floor(Math.random() * 5000) + 1000 },
-];
+interface MonthlySalesData {
+  month: string;
+  sales: number;
+  yearMonth: string; // for sorting e.g. "2023-01"
+}
+
+interface ProductSalesData {
+  name: string;
+  sales: number; // units sold
+}
+
+interface StockLevelData {
+  name: string;
+  stock: number;
+}
+
+interface SummaryMetrics {
+  totalRevenue: number;
+  activeCustomers: number;
+  lowStockItemsCount: number;
+}
 
 const salesChartConfig = {
   sales: {
@@ -24,28 +41,12 @@ const salesChartConfig = {
   },
 } satisfies ChartConfig
 
-const topProductsData = [
-  { name: "Doce Cremoso", sales: Math.floor(Math.random() * 200) + 50 },
-  { name: "Bananada Barra", sales: Math.floor(Math.random() * 150) + 40 },
-  { name: "Com Chocolate", sales: Math.floor(Math.random() * 100) + 30 },
-  { name: "Diet", sales: Math.floor(Math.random() * 80) + 20 },
-  { name: "Geleia", sales: Math.floor(Math.random() * 50) + 10 },
-];
-
 const topProductsChartConfig = {
   sales: {
     label: "Unidades Vendidas",
     color: "hsl(var(--accent))",
   },
 } satisfies ChartConfig
-
-const stockLevelsData = [
-  { name: "Doce Cremoso", stock: Math.floor(Math.random() * 50) },
-  { name: "Bananada Barra", stock: Math.floor(Math.random() * 30) },
-  { name: "Com Chocolate", stock: Math.floor(Math.random() * 10) }, // Potencial estoque baixo
-  { name: "Diet", stock: Math.floor(Math.random() * 5) }, // Potencial estoque baixo
-  { name: "Geleia", stock: Math.floor(Math.random() * 20) },
-];
 
 const stockChartConfig = {
   stock: {
@@ -56,6 +57,115 @@ const stockChartConfig = {
 
 
 export default function RelatoriosPage() {
+  const [monthlySales, setMonthlySales] = useState<MonthlySalesData[]>([]);
+  const [topProducts, setTopProducts] = useState<ProductSalesData[]>([]);
+  const [stockLevels, setStockLevels] = useState<StockLevelData[]>([]);
+  const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetrics>({
+    totalRevenue: 0,
+    activeCustomers: 0,
+    lowStockItemsCount: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadReportData = () => {
+      setIsLoading(true);
+      const sales = getStoredSales();
+      const products = getStoredProducts();
+
+      // Process Monthly Sales (last 6 months)
+      const monthlySalesAgg: { [key: string]: number } = {};
+      const sixMonthsAgo = subMonths(new Date(), 5); // Current month + 5 previous months
+
+      sales.forEach(sale => {
+        const saleDate = new Date(sale.date);
+        if (saleDate >= sixMonthsAgo) {
+          const monthYearKey = format(saleDate, "yyyy-MM");
+          monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
+        }
+      });
+      
+      const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
+        .map(([key, total]) => ({
+          yearMonth: key,
+          month: format(new Date(key + '-02'), "MMM/yy", { locale: ptBR }), // Add day to make it valid date for format
+          sales: total,
+        }))
+        .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth)); // Sort chronologically
+      setMonthlySales(processedMonthlySales);
+
+
+      // Process Top Products (by quantity sold)
+      const productSalesAgg: { [productId: string]: number } = {};
+      sales.forEach(sale => {
+        productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
+      });
+
+      const processedTopProducts: ProductSalesData[] = Object.entries(productSalesAgg)
+        .map(([productId, quantity]) => {
+          const product = products.find(p => p.id === productId);
+          return {
+            name: product?.name || `Produto ID ${productId}`,
+            sales: quantity,
+          };
+        })
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5); // Top 5
+      setTopProducts(processedTopProducts);
+
+      // Process Stock Levels (show a few products, e.g., lowest stock or first 5)
+      const processedStockLevels: StockLevelData[] = products
+        .sort((a,b) => a.stock - b.stock) // Show lowest stock first
+        .slice(0, 5) // Show 5 products
+        .map(product => ({
+          name: product.name,
+          stock: product.stock,
+        }));
+      setStockLevels(processedStockLevels);
+      
+      // Calculate Summary Metrics
+      const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
+      const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
+      const lowStockItemsCount = products.filter(p => p.stock < 10 && p.stock > 0).length; // Stock > 0 but < 10
+
+      setSummaryMetrics({
+        totalRevenue,
+        activeCustomers: uniqueCustomers.size,
+        lowStockItemsCount,
+      });
+
+      setIsLoading(false);
+    };
+
+    loadReportData();
+
+    // Optional: Listen for storage changes to auto-update reports
+    const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === 'bananaBlissApp_sales' || event.key === 'bananaBlissApp_products' || event.key === 'bananaBlissApp_entries') {
+            loadReportData();
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+
+  }, []);
+
+  const renderChartOrMessage = (data: any[], chartComponent: React.ReactNode, message: string) => {
+    if (isLoading) {
+      return <p className="text-center text-muted-foreground py-10">Carregando dados...</p>;
+    }
+    if (data.length === 0) {
+      return <div className="text-center text-muted-foreground py-10 flex flex-col items-center justify-center h-full">
+                <Info size={32} className="mb-2"/> 
+                <p>{message}</p>
+            </div>;
+    }
+    return chartComponent;
+  };
+
+
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="shadow-xl">
@@ -67,7 +177,7 @@ export default function RelatoriosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Acompanhe as métricas chave do seu negócio. (Dados de exemplo)
+            Acompanhe as métricas chave do seu negócio.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -76,25 +186,27 @@ export default function RelatoriosPage() {
               <CardTitle className="text-lg font-headline flex items-center gap-2">
                 <TrendingUp size={20} className="text-primary" />Vendas Mensais (R$)
               </CardTitle>
-              <CardDescription>Total de vendas ao longo dos meses.</CardDescription>
+              <CardDescription>Total de vendas nos últimos 6 meses.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ChartContainer config={salesChartConfig} className="h-[300px] w-full">
-                <BarChart accessibilityLayer data={salesData}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    tickFormatter={(value) => value.slice(0, 3)}
-                  />
-                  <YAxis tickFormatter={(value) => `R$${value/1000}k`} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
-                </BarChart>
-              </ChartContainer>
+            <CardContent className="h-[350px]"> {/* Fixed height for consistency */}
+              {renderChartOrMessage(monthlySales,
+                <ChartContainer config={salesChartConfig} className="h-full w-full">
+                  <BarChart accessibilityLayer data={monthlySales}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={10}
+                      axisLine={false}
+                    />
+                    <YAxis tickFormatter={(value) => `R$${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
+                  </BarChart>
+                </ChartContainer>,
+                "Nenhuma venda registrada nos últimos 6 meses para exibir o gráfico."
+              )}
             </CardContent>
           </Card>
 
@@ -103,67 +215,74 @@ export default function RelatoriosPage() {
               <CardTitle className="text-lg font-headline flex items-center gap-2">
                 <Package size={20} className="text-accent" />Produtos Mais Vendidos
               </CardTitle>
-              <CardDescription>Ranking de produtos por unidades vendidas.</CardDescription>
+              <CardDescription>Ranking dos 5 produtos mais vendidos (unidades).</CardDescription>
             </CardHeader>
-            <CardContent>
-                <ChartContainer config={topProductsChartConfig} className="h-[300px] w-full">
-                    <BarChart accessibilityLayer data={topProductsData} layout="vertical">
+            <CardContent className="h-[350px]">
+              {renderChartOrMessage(topProducts,
+                <ChartContainer config={topProductsChartConfig} className="h-full w-full">
+                    <BarChart accessibilityLayer data={topProducts} layout="vertical">
                         <CartesianGrid horizontal={false} />
-                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={5} width={100} />
+                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={5} width={120} interval={0} />
                         <XAxis dataKey="sales" type="number" />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <ChartLegend content={<ChartLegendContent />} />
                         <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
                     </BarChart>
-                </ChartContainer>
+                </ChartContainer>,
+                "Nenhuma venda registrada para exibir os produtos mais vendidos."
+              )}
             </CardContent>
           </Card>
           
           <Card className="md:col-span-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-headline flex items-center gap-2">
-                <AlertTriangle size={20} className="text-orange-500" />Níveis de Estoque
+                <AlertTriangle size={20} className="text-orange-500" />Níveis de Estoque (Top 5 Baixos/Primeiros)
               </CardTitle>
-              <CardDescription>Visão geral do estoque dos produtos principais.</CardDescription>
+              <CardDescription>Visão geral do estoque de alguns produtos.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <ChartContainer config={stockChartConfig} className="h-[300px] w-full">
-                    <BarChart accessibilityLayer data={stockLevelsData}>
+            <CardContent className="h-[350px]">
+              {renderChartOrMessage(stockLevels,
+                <ChartContainer config={stockChartConfig} className="h-full w-full">
+                    <BarChart accessibilityLayer data={stockLevels}>
                         <CartesianGrid vertical={false} />
                         <XAxis
                             dataKey="name"
                             tickLine={false}
                             tickMargin={10}
                             axisLine={false}
+                            interval={0}
                         />
                         <YAxis />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <ChartLegend content={<ChartLegendContent />} />
                         <Bar dataKey="stock" fill="var(--color-stock)" radius={4} />
                     </BarChart>
-                </ChartContainer>
+                </ChartContainer>,
+                "Nenhum produto cadastrado para exibir níveis de estoque."
+              )}
             </CardContent>
           </Card>
 
           <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
             <Card className="bg-card/70">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Vendas (Período)</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total de Vendas (Geral)</CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">R$ 12,345.67</div>
-                    <p className="text-xs text-muted-foreground">+20.1% em relação ao mês passado</p>
+                    <div className="text-2xl font-bold">R$ {summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <p className="text-xs text-muted-foreground">Valor total de todas as vendas registradas.</p>
                 </CardContent>
             </Card>
             <Card className="bg-card/70">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
+                    <CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">+230</div>
-                    <p className="text-xs text-muted-foreground">+50 novos este mês</p>
+                    <div className="text-2xl font-bold">{summaryMetrics.activeCustomers}</div>
+                    <p className="text-xs text-muted-foreground">Número de clientes únicos que compraram.</p>
                 </CardContent>
             </Card>
              <Card className="bg-card/70">
@@ -172,8 +291,8 @@ export default function RelatoriosPage() {
                     <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">3 Produtos</div>
-                    <p className="text-xs text-muted-foreground">Requerem atenção</p>
+                    <div className="text-2xl font-bold">{summaryMetrics.lowStockItemsCount} Produto(s)</div>
+                    <p className="text-xs text-muted-foreground">Produtos com menos de 10 unidades em estoque.</p>
                 </CardContent>
             </Card>
           </div>
@@ -183,3 +302,4 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
