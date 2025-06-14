@@ -254,7 +254,7 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
 };
 
 if (typeof window !== 'undefined' && window.indexedDB) {
-    openDB().then(async () => { // made openDB().then() async
+    openDB().then(async () => { 
       try {
         await initializeProductsDB();
       } catch (error) {
@@ -266,3 +266,6 @@ if (typeof window !== 'undefined' && window.indexedDB) {
 }
 
 
+
+
+    

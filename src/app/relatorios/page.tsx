@@ -250,13 +250,13 @@ export default function RelatoriosPage() {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
           // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}:`, {date: latestRelevantEntry.date.toISOString(), unitPrice: latestRelevantEntry.unitPrice, id: latestRelevantEntry.id });
           
-          if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) { // Redundant check as it's in filter, but good for safety
+          if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) { 
              const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
              analysis.totalCost += costForThisSaleItem;
              analysis.costCalculableSalesCount += 1; 
             //  console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Custo calculado para esta venda de ${analysis.productName}: ${costForThisSaleItem} (Entrada Custo Unit. ${latestRelevantEntry.unitPrice} * Qtd Vendida ${sale.quantity})`);
           } else {
-            // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante para ${analysis.productName} tem custo unitário ZERO ou é inválida (não deveria acontecer devido ao filtro). Não será usada para custo.`);
+            // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante para ${analysis.productName} tem custo unitário ZERO ou é inválida. Não será usada para custo.`);
           }
         } else {
         //   console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida (data anterior/igual à venda, custo > 0) encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
@@ -649,5 +649,7 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
+    
 
     

@@ -37,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 const entryFormSchema = z.object({
@@ -55,7 +54,7 @@ const entryFormSchema = z.object({
   quantity: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  unitPrice: z.coerce.number().positive({ // Mantido como unitPrice no schema para consistência interna, mas rotulado como Custo Unitário
+  unitPrice: z.coerce.number().positive({ 
     message: "O custo unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
 });
@@ -126,7 +125,7 @@ export default function EntradaPage() {
       const newEntry: Entry = {
         id: String(Date.now()),
         ...data,
-        totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)), // Mantido como totalValue internamente
+        totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)), 
         productName: selectedProduct.name,
       };
 
@@ -409,5 +408,7 @@ export default function EntradaPage() {
     </div>
   );
 }
+
+    
 
     
