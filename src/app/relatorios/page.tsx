@@ -118,8 +118,9 @@ export default function RelatoriosPage() {
       // console.log("--- RELATORIOS: Primeiras 5 vendas processadas com new Date():", allSales.slice(0,5).map(s => ({id:s.id, date: s.date, customer: s.customer, productId: s.productId, quantity: s.quantity, totalValue: s.totalValue})));
       // console.log("--- RELATORIOS: Primeiras 5 entradas processadas com new Date():", allEntries.slice(0,5).map(e => ({id:e.id, date: e.date, supplier: e.supplier, productId: e.productId, unitPrice: e.unitPrice })));
 
+      // Entries sorted by date ascending (oldest first) for correct cost calculation
       const sortedEntries = [...allEntries].sort((a, b) => a.date.getTime() - b.date.getTime());
-      // if (sortedEntries.length > 0) console.log("--- RELATORIOS: Primeira entrada ordenada:", sortedEntries[0], "Última:", sortedEntries[sortedEntries.length-1]);
+      // if (sortedEntries.length > 0) console.log("--- RELATORIOS: Primeira entrada ordenada (mais antiga):", sortedEntries[0], "Última (mais recente):", sortedEntries[sortedEntries.length-1]);
 
 
       const monthlySalesAgg: { [key: string]: number } = {};
@@ -220,7 +221,7 @@ export default function RelatoriosPage() {
 
       allSales.forEach(sale => {
         // Descomente as linhas abaixo para depurar o cálculo de custo para cada venda
-        // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Processando Venda para ProdutoID ${sale.productId} ('${sale.productName}'), Cliente ${sale.customer}, Data ${sale.date.toISOString()}, Qtd ${sale.quantity}, Valor Total Venda ${sale.totalValue}`);
+        // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Processando Venda para ProdutoID ${sale.productId} ('${sale.productName || 'N/A'}'), Cliente ${sale.customer}, Data ${sale.date.toISOString()}, Qtd ${sale.quantity}, Valor Total Venda ${sale.totalValue}`);
         
         const analysis = productAnalysisMap.get(sale.productId);
         if (!analysis) {
@@ -235,31 +236,35 @@ export default function RelatoriosPage() {
         const currentSaleDateTime = sale.date.getTime();
         // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Data da venda (timestamp): ${currentSaleDateTime} para ${analysis.productName}`);
 
+        // Find relevant entries: same product, entry date <= sale date, entry unitPrice (cost) > 0
         const relevantEntries = sortedEntries.filter(
           entry => entry.productId === sale.productId && entry.date.getTime() <= currentSaleDateTime && entry.unitPrice > 0
         );
         
         // if (relevantEntries.length > 0) {
-        //    console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] ENTRADAS RELEVANTES para ${analysis.productName} (venda em ${sale.date.toISOString()}):`, relevantEntries.map(re => ({date: re.date.toISOString(), unitPrice: re.unitPrice, id: re.id })));
+        //    console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] ENTRADAS RELEVANTES (mesmo produto, data <= venda, custo unit > 0) para ${analysis.productName} (venda em ${sale.date.toISOString()}):`, relevantEntries.map(re => ({date: re.date.toISOString(), unitPrice: re.unitPrice, supplier: re.supplier, id: re.id })));
         // } else {
         //    console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] NENHUMA entrada relevante encontrada para ${analysis.productName} (venda em ${sale.date.toISOString()}) com custo unitário > 0 e data <= data da venda.`);
         // }
 
 
         if (relevantEntries.length > 0) {
+          // The last entry in relevantEntries is the most recent one due to prior sorting of sortedEntries (ascending)
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
-          // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}:`, {date: latestRelevantEntry.date.toISOString(), unitPrice: latestRelevantEntry.unitPrice, id: latestRelevantEntry.id });
+          // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}:`, {date: latestRelevantEntry.date.toISOString(), unitPrice: latestRelevantEntry.unitPrice, supplier: latestRelevantEntry.supplier, id: latestRelevantEntry.id });
           
+          // We already filtered for unitPrice > 0 in relevantEntries, but this is a defensive check.
           if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) { 
              const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
              analysis.totalCost += costForThisSaleItem;
              analysis.costCalculableSalesCount += 1; 
-            //  console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Custo calculado para esta venda de ${analysis.productName}: ${costForThisSaleItem} (Entrada Custo Unit. ${latestRelevantEntry.unitPrice} * Qtd Vendida ${sale.quantity})`);
+            //  console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Custo calculado para esta venda de ${analysis.productName}: ${costForThisSaleItem} (Custo Unit. da Entrada ${latestRelevantEntry.unitPrice} * Qtd Vendida ${sale.quantity})`);
           } else {
-            // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante para ${analysis.productName} tem custo unitário ZERO ou é inválida. Não será usada para custo.`);
+            // This case should ideally not be hit if relevantEntries filter is correct.
+            // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante para ${analysis.productName} tem custo unitário ZERO ou é inválida (inesperado). Não será usada para custo.`);
           }
         } else {
-        //   console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida (data anterior/igual à venda, custo > 0) encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
+        //   console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida (mesmo produto, data anterior/igual à venda, custo unitário > 0) encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
         }
       });
       // console.log("--- RELATORIOS: Fim Análise de Lucratividade (por produto) ---", productAnalysisMap);
@@ -539,9 +544,9 @@ export default function RelatoriosPage() {
                         <CardTitle className="text-lg font-headline flex items-center gap-2">
                             <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                         </CardTitle>
-                        <div className="text-primary-foreground/80">
+                        <CardDescription className="text-primary-foreground/80">
                             Detalhes de receita, custo, lucro e margem por produto. Lucro = <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (dos Custos Unitários das Entradas)</strong>.
-                        </div>
+                        </CardDescription>
                     </div>
                    <div className="mt-4 text-sm text-destructive-foreground/90 border-2 border-dashed border-destructive/50 p-4 rounded-md bg-destructive/5">
                         <strong className="block mb-2 text-md text-destructive font-semibold flex items-center"><Info size={18} className="mr-2"/>PARA CÁLCULO CORRETO DO CUSTO E LUCRO - LEIA ATENTAMENTE:</strong> 
@@ -599,7 +604,7 @@ export default function RelatoriosPage() {
                                 Lucratividade estimada = Receita das Vendas - Custo das Entradas.
                                 A "Cobertura de Custo" (ex: "1/2") indica para quantas vendas foi possível calcular o custo.
                                 Se for parcial ou "0/X", os valores de Custo, Lucro e Margem podem não refletir a realidade total.
-                                Garanta que as entradas de estoque sejam registradas com <strong className="text-primary-foreground/80">Custos (Valor Unitário &gt; 0)</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong> para maior precisão.
+                                Garanta que as entradas de estoque sejam registradas com <strong className="text-primary-foreground/80">Custos (Custo Unitário &gt; 0)</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong> para maior precisão.
                                 {isMounted && hasIncompleteCosting && <span className="block mt-1 text-xs text-destructive">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos (Custo Unitário e Data).</span>}
                             </TableCaption>
                         </Table>
@@ -649,7 +654,4 @@ export default function RelatoriosPage() {
     </div>
   );
 }
-
-    
-
     
