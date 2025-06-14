@@ -508,10 +508,10 @@ export default function RelatoriosPage() {
                     <CardTitle className="text-lg font-headline flex items-center gap-2">
                         <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                     </CardTitle>
-                    <CardDescription>
+                     <CardDescription className="text-primary-foreground/80">
                         Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.
                     </CardDescription>
-                    <div className="text-sm text-muted-foreground mt-1">
+                   <div className="text-sm text-muted-foreground mt-1">
                         <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado do "Valor Unitário" (custo) dos produtos nas 'Entradas' de estoque.
                         Para um cálculo preciso:
                         <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2 mt-1">
