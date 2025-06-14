@@ -224,16 +224,14 @@ export default function RelatoriosPage() {
         const currentSaleDateTime = sale.date.getTime();
 
         const relevantEntries = sortedEntries.filter(
-          e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime
+          e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime && e.unitPrice > 0
         );
 
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          if (typeof latestRelevantEntry.unitPrice === 'number' && latestRelevantEntry.unitPrice > 0) {
-            const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
-            analysis.totalCost += costForThisSaleItem;
-            analysis.costCalculableSales += 1;
-          }
+          const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
+          analysis.totalCost += costForThisSaleItem;
+          analysis.costCalculableSales += 1;
         }
       });
 
@@ -327,14 +325,15 @@ export default function RelatoriosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Acompanhe as métricas chave do seu negócio. Os cálculos de custo e lucro dependem do registro correto das entradas de estoque com seus respectivos custos unitários.
+            Acompanhe as métricas chave do seu negócio. O lucro é calculado como <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (Entradas)</strong>.
+            Os cálculos de custo e lucro dependem do registro correto das entradas de estoque com seus respectivos custos unitários e datas.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Receita Total (Geral)</CardTitle>
+                        <CardTitle className="text-sm font-medium">Receita Total (Vendas)</CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -353,7 +352,7 @@ export default function RelatoriosPage() {
                          <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Custo estimado dos produtos vendidos, baseado no 'Valor Unitário' das Entradas de estoque.</p>
+                        <p className="text-xs text-muted-foreground">Custo dos produtos vendidos, baseado no 'Valor Unitário' das Entradas.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -502,7 +501,6 @@ export default function RelatoriosPage() {
                 </CardContent>
             </Card>
 
-
             <Card className="mt-6">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-lg font-headline flex items-center gap-2">
@@ -617,4 +615,5 @@ export default function RelatoriosPage() {
     
 
     
+
 

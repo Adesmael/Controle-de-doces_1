@@ -254,12 +254,15 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
 };
 
 if (typeof window !== 'undefined' && window.indexedDB) {
-    openDB().then(() => {
-        initializeProductsDB().catch(error => {
-            console.error("Error during top-level initializeProductsDB:", error);
-        });
+    openDB().then(async () => { // made openDB().then() async
+      try {
+        await initializeProductsDB();
+      } catch (error) {
+        console.error("Error during top-level initializeProductsDB:", error);
+      }
     }).catch(error => {
         console.error("Error opening DB for initialization:", error);
     });
 }
+
 
