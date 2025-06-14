@@ -4,13 +4,13 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, AlertTriangle, Info, FileText, TrendingDown, Loader2 } from "lucide-react";
-import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
+import { BarChart3, TrendingUp, Package, Users, DollarSign, AlertTriangle, Info, FileText, TrendingDown, Loader2, CalendarDays } from "lucide-react";
+import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { getSales, getProducts, getEntries } from "@/lib/storage";
 import type { Sale, Product, Entry, SalesProfitData } from "@/lib/types";
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,9 +20,15 @@ interface MonthlySalesData {
   yearMonth: string;
 }
 
+interface DailySalesData {
+  dateDisplay: string; // Format "dd/MM"
+  fullDate: string; // Format "yyyy-MM-dd" for sorting
+  sales: number;
+}
+
 interface ProductSalesData {
   name: string;
-  sales: number;
+  sales: number; // Units sold
 }
 
 interface StockLevelData {
@@ -58,9 +64,17 @@ const stockChartConfig = {
   },
 } satisfies ChartConfig
 
+const dailySalesChartConfig = {
+  sales: {
+    label: "Vendas Diárias (R$)",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig
+
 
 export default function RelatoriosPage() {
   const [monthlySales, setMonthlySales] = useState<MonthlySalesData[]>([]);
+  const [dailySales, setDailySales] = useState<DailySalesData[]>([]);
   const [topProducts, setTopProducts] = useState<ProductSalesData[]>([]);
   const [stockLevels, setStockLevels] = useState<StockLevelData[]>([]);
   const [salesProfitData, setSalesProfitData] = useState<SalesProfitData[]>([]);
@@ -81,15 +95,18 @@ export default function RelatoriosPage() {
       const [sales, products, entries] = await Promise.all([
         getSales(),
         getProducts(),
-        getEntries() // Entries are sorted by date desc by default from storage function
+        getEntries() 
       ]);
       
-      // Sort entries by date ascending for correct LIFO/FIFO-like costing
       const sortedEntries = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
 
+      // Monthly Sales (last 6 months)
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
+      sixMonthsAgo.setDate(1); 
+      sixMonthsAgo.setHours(0,0,0,0);
+
 
       sales.forEach(sale => {
         const saleDate = new Date(sale.date);
@@ -102,12 +119,36 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00'), "MMM/yy", { locale: ptBR }), // Ensure consistent date parsing
+          month: format(new Date(key + '-02T00:00:00'), "MMM/yy", { locale: ptBR }),
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
       setMonthlySales(processedMonthlySales);
 
+      // Daily Sales (last 30 days)
+      const dailySalesAgg: { [key: string]: number } = {};
+      const thirtyDaysAgo = subDays(new Date(), 29);
+      thirtyDaysAgo.setHours(0,0,0,0);
+
+      sales.forEach(sale => {
+        const saleDate = new Date(sale.date);
+        if (saleDate >= thirtyDaysAgo) {
+          const dayKey = format(saleDate, "yyyy-MM-dd");
+          dailySalesAgg[dayKey] = (dailySalesAgg[dayKey] || 0) + sale.totalValue;
+        }
+      });
+
+      const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
+        .map(([key, total]) => ({
+            fullDate: key,
+            dateDisplay: format(new Date(key + 'T00:00:00'), "dd/MM", { locale: ptBR }),
+            sales: total,
+        }))
+        .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
+      setDailySales(processedDailySales);
+
+
+      // Top Selling Products (Units)
       const productSalesAgg: { [productId: string]: number } = {};
       sales.forEach(sale => {
         productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
@@ -125,16 +166,18 @@ export default function RelatoriosPage() {
         .slice(0, 5);
       setTopProducts(processedTopProducts);
 
+      // Low Stock Levels
       const processedStockLevels: StockLevelData[] = products
-        .filter(p => p.stock < 10) // Filter first for low stock
+        .filter(p => p.stock < 10) 
         .sort((a,b) => a.stock - b.stock)
-        .slice(0, 10) // Then take top 10 of those
+        .slice(0, 10) 
         .map(product => ({
           name: product.name,
           stock: product.stock,
         }));
       setStockLevels(processedStockLevels);
 
+      // Summary Metrics
       const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
       const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
       const lowStockItemsCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
@@ -171,13 +214,14 @@ export default function RelatoriosPage() {
         analysis.unitsSold += sale.quantity;
         analysis.totalSalesRecords += 1;
 
-        // Find latest entry cost before or on the sale date
         const relevantEntries = sortedEntries.filter(e => e.productId === sale.productId && new Date(e.date) <= new Date(sale.date));
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
-          analysis.totalCost += costForThisSaleItem;
-          analysis.costCalculableSales += 1;
+          if (latestRelevantEntry.unitPrice > 0) { // Ensure unitPrice is positive for cost calculation
+            const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
+            analysis.totalCost += costForThisSaleItem;
+            analysis.costCalculableSales += 1;
+          }
         }
       });
 
@@ -194,7 +238,7 @@ export default function RelatoriosPage() {
         }
 
         return {
-          productId: products.find(p => p.name === analysis.name)?.id || 'unknown', // Find ID back if needed
+          productId: products.find(p => p.name === analysis.name)?.id || 'unknown',
           name: analysis.name,
           unitsSold: analysis.unitsSold,
           totalRevenue: analysis.totalRevenue,
@@ -227,17 +271,12 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     loadReportData();
-    // IndexedDB doesn't have a direct cross-tab 'storage' event like localStorage.
-    // For real-time updates across tabs with IndexedDB, more complex solutions
-    // like BroadcastChannel API or polling would be needed.
-    // For now, data updates on this page would require a refresh or navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   const renderChartOrMessage = (data: any[], chartComponent: React.ReactNode, message: string, minHeight: string = "h-[350px]") => {
-    // isLoading is handled globally for the page now
-    if (data.length === 0 && !isLoading) { // Show message only if not loading and data is empty
+    if (data.length === 0 && !isLoading) { 
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}>
                 <Info size={32} className="mb-2"/>
                 <p>{message}</p>
@@ -245,6 +284,10 @@ export default function RelatoriosPage() {
     }
     return <div className={minHeight}>{chartComponent}</div>;
   };
+
+  const chartLabelFormatter = (value: number) => value > 0 ? String(Math.round(value)) : '';
+  const chartCurrencyLabelFormatter = (value: number) => value > 0 ? `R$${Math.round(value)}` : '';
+
 
   if (isLoading) {
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando relatórios...</p></div>;
@@ -324,15 +367,17 @@ export default function RelatoriosPage() {
                           <BarChart accessibilityLayer data={monthlySales}>
                               <CartesianGrid vertical={false} />
                               <XAxis
-                              dataKey="month"
-                              tickLine={false}
-                              tickMargin={10}
-                              axisLine={false}
+                                dataKey="month"
+                                tickLine={false}
+                                tickMargin={10}
+                                axisLine={false}
                               />
-                              <YAxis tickFormatter={(value) => `R$${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} />
+                              <YAxis tickFormatter={(value) => `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`} />
                               <ChartTooltip content={<ChartTooltipContent />} />
                               <ChartLegend content={<ChartLegendContent />} />
-                              <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
+                              <Bar dataKey="sales" fill="var(--color-sales)" radius={4}>
+                                <LabelList dataKey="sales" position="top" style={{ fontSize: '10px', fill: 'hsl(var(--foreground))' }} formatter={chartCurrencyLabelFormatter} />
+                              </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                         </ChartContainer>,
@@ -344,9 +389,9 @@ export default function RelatoriosPage() {
                 <Card>
                     <CardHeader className="pb-2">
                     <CardTitle className="text-lg font-headline flex items-center gap-2">
-                        <Package size={20} className="text-accent" />Produtos Mais Vendidos
+                        <Package size={20} className="text-accent" />Produtos Mais Vendidos (Unidades)
                     </CardTitle>
-                    <CardDescription>Ranking dos 5 produtos mais vendidos (unidades).</CardDescription>
+                    <CardDescription>Top 5 produtos mais vendidos em unidades.</CardDescription>
                     </CardHeader>
                     <CardContent>
                     {renderChartOrMessage(topProducts,
@@ -358,7 +403,9 @@ export default function RelatoriosPage() {
                                 <XAxis dataKey="sales" type="number" />
                                 <ChartTooltip content={<ChartTooltipContent />} />
                                 <ChartLegend content={<ChartLegendContent />} />
-                                <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
+                                <Bar dataKey="sales" fill="var(--color-sales)" radius={4}>
+                                  <LabelList dataKey="sales" position="right" offset={5} style={{ fontSize: '10px', fill: 'hsl(var(--foreground))' }} formatter={chartLabelFormatter} />
+                                </Bar>
                             </BarChart>
                           </ResponsiveContainer>
                         </ChartContainer>,
@@ -367,6 +414,40 @@ export default function RelatoriosPage() {
                     </CardContent>
                 </Card>
             </div>
+            
+            <Card className="mt-6">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-headline flex items-center gap-2">
+                        <CalendarDays size={20} className="text-purple-500" />Vendas Diárias (R$)
+                    </CardTitle>
+                    <CardDescription>Total de vendas nos últimos 30 dias.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                {renderChartOrMessage(dailySales,
+                    <ChartContainer config={dailySalesChartConfig} className="h-full w-full">
+                    <ResponsiveContainer width="100%" height={350}>
+                        <BarChart accessibilityLayer data={dailySales}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                            dataKey="dateDisplay"
+                            tickLine={false}
+                            tickMargin={10}
+                            axisLine={false}
+                            />
+                            <YAxis tickFormatter={(value) => `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            <Bar dataKey="sales" fill="var(--color-sales)" radius={4}>
+                                <LabelList dataKey="sales" position="top" style={{ fontSize: '10px', fill: 'hsl(var(--foreground))' }} formatter={chartCurrencyLabelFormatter} />
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                    </ChartContainer>,
+                    "Nenhuma venda registrada nos últimos 30 dias para exibir o gráfico."
+                )}
+                </CardContent>
+            </Card>
+
 
             <Card className="mt-6">
                 <CardHeader className="pb-2">
@@ -380,7 +461,7 @@ export default function RelatoriosPage() {
                          <div className="text-center text-muted-foreground py-10 flex flex-col items-center justify-center h-full">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade.</p>
-                            <p className="text-sm">Registre vendas e entradas de estoque para ver esta análise.</p>
+                            <p className="text-sm">Registre vendas e entradas de estoque (com custos) para ver esta análise.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -410,8 +491,11 @@ export default function RelatoriosPage() {
                             ))}
                             </TableBody>
                             <TableCaption>
-                                Lucratividade estimada com base nos custos de entrada registrados em ou antes da data da venda.
-                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Alguns produtos têm cálculo de custo parcial (indicado na tabela e destacado em vermelho claro). Isso pode afetar a precisão do lucro e margem. Garanta que as entradas de estoque sejam registradas antes das vendas para maior precisão.</span>}
+                                Lucratividade estimada com base nos custos de entrada (Valor Unitário) registrados em ou antes da data da venda. <br/>
+                                A coluna "Cobertura de Custo" indica para quantas vendas foi possível calcular o custo. Se for parcial (ex: 1/2),
+                                os valores de Custo Estimado, Lucro e Margem para esse produto podem não refletir a realidade total. <br/>
+                                Garanta que as entradas de estoque sejam registradas com seus respectivos custos antes das vendas para maior precisão. Produtos com custo de entrada zero também resultarão em lucro igual à receita.
+                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial (indicado na tabela e destacado em vermelho claro). Verifique os registros de entrada.</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -419,7 +503,7 @@ export default function RelatoriosPage() {
                 </CardContent>
             </Card>
 
-            <Card className="mt-6 md:col-span-2">
+            <Card className="mt-6">
                 <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-headline flex items-center gap-2">
                     <TrendingDown size={20} className="text-orange-500" />Produtos com Estoque Baixo (Top 10)
@@ -436,7 +520,9 @@ export default function RelatoriosPage() {
                             <XAxis dataKey="stock" type="number" domain={[0, 'dataMax + 2']}/>
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <ChartLegend content={<ChartLegendContent />} />
-                            <Bar dataKey="stock" fill="var(--color-stock)" radius={4} />
+                            <Bar dataKey="stock" fill="var(--color-stock)" radius={4}>
+                               <LabelList dataKey="stock" position="right" offset={5} style={{ fontSize: '10px', fill: 'hsl(var(--foreground))' }} formatter={chartLabelFormatter} />
+                            </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartContainer>,
@@ -451,3 +537,6 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
+
+    
