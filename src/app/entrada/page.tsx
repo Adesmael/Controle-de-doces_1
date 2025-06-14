@@ -55,7 +55,7 @@ const entryFormSchema = z.object({
   quantity: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  unitPrice: z.coerce.number().positive({
+  unitPrice: z.coerce.number().positive({ // Mantido como unitPrice no schema para consistência interna, mas rotulado como Custo Unitário
     message: "O custo unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
 });
@@ -78,7 +78,7 @@ export default function EntradaPage() {
         getEntries()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setEntries(storedEntries); // Already sorted by date descending in getEntries
+      setEntries(storedEntries);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou entradas.", variant: "destructive" });
@@ -126,7 +126,7 @@ export default function EntradaPage() {
       const newEntry: Entry = {
         id: String(Date.now()),
         ...data,
-        totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)),
+        totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)), // Mantido como totalValue internamente
         productName: selectedProduct.name,
       };
 
@@ -174,7 +174,7 @@ export default function EntradaPage() {
         await deleteEntry(entryToDelete.id);
         const productToUpdate = await getProductById(entryToDelete.productId);
         if (productToUpdate) {
-          const newStock = Math.max(0, productToUpdate.stock - entryToDelete.quantity); // Prevent negative stock
+          const newStock = Math.max(0, productToUpdate.stock - entryToDelete.quantity); 
           await updateProduct({ ...productToUpdate, stock: newStock });
         }
         toast({
@@ -212,7 +212,7 @@ export default function EntradaPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Preencha o formulário para registrar novas entradas de produtos no estoque, incluindo seus custos.
+            Preencha o formulário para registrar novas entradas de produtos no estoque, incluindo seus custos de aquisição.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -316,7 +316,7 @@ export default function EntradaPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="unitPrice"
+                  name="unitPrice" 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Custo Unitário (R$)</FormLabel>
@@ -382,7 +382,7 @@ export default function EntradaPage() {
                   </TableRow>
                 ))}
               </TableBody>
-               <TableCaption>Lista das últimas entradas de produtos.</TableCaption>
+               <TableCaption>Lista das últimas entradas de produtos. "Custo Unit." refere-se ao custo de aquisição do produto.</TableCaption>
             </Table>
           </CardContent>
         </Card>
@@ -409,3 +409,5 @@ export default function EntradaPage() {
     </div>
   );
 }
+
+    
