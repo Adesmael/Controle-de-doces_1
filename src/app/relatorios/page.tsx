@@ -13,6 +13,8 @@ import type { Sale, Product, Entry, SalesProfitData } from "@/lib/types";
 import { format, subMonths, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 interface MonthlySalesData {
   month: string;
@@ -21,14 +23,14 @@ interface MonthlySalesData {
 }
 
 interface DailySalesData {
-  dateDisplay: string; // Format "dd/MM"
-  fullDate: string; // Format "yyyy-MM-dd" for sorting
+  dateDisplay: string; 
+  fullDate: string; 
   sales: number;
 }
 
 interface ProductSalesData {
   name: string;
-  sales: number; // Units sold
+  sales: number; 
 }
 
 interface StockLevelData {
@@ -90,7 +92,12 @@ export default function RelatoriosPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [hasIncompleteCosting, setHasIncompleteCosting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
 
   const loadReportData = async () => {
@@ -285,7 +292,10 @@ export default function RelatoriosPage() {
 
 
   const renderChartOrMessage = (data: any[], chartComponent: React.ReactNode, message: string, minHeight: string = "h-[350px]") => {
-    if (data.length === 0 && !isLoading) {
+    if (isLoading) {
+      return <div className={`flex flex-col items-center justify-center ${minHeight}`}><Skeleton className="w-full h-full" /></div>;
+    }
+    if (data.length === 0) {
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}>
                 <Info size={32} className="mb-2"/>
                 <p>{message}</p>
@@ -294,11 +304,11 @@ export default function RelatoriosPage() {
     return <div className={minHeight}>{chartComponent}</div>;
   };
 
-  const chartLabelFormatter = (value: number) => value > 0 ? String(Math.round(value)) : '';
-  const chartCurrencyLabelFormatter = (value: number) => value > 0 ? `R$${Math.round(value)}` : '';
+  const chartLabelFormatter = (value: number) => isMounted && value > 0 ? String(Math.round(value)) : '';
+  const chartCurrencyLabelFormatter = (value: number) => isMounted && value > 0 ? `R$${Math.round(value)}` : '';
 
 
-  if (isLoading) {
+  if (isLoading && !isMounted) { // Show main loader only on initial load before mount
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando relatórios...</p></div>;
   }
 
@@ -325,7 +335,9 @@ export default function RelatoriosPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">R$ {summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-2xl font-bold">
+                            {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Valor total de todas as vendas.</p>
                     </CardContent>
                 </Card>
@@ -335,7 +347,9 @@ export default function RelatoriosPage() {
                         <Receipt className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">R$ {summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                         <div className="text-2xl font-bold">
+                            {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Custo total estimado dos produtos vendidos. <br/>(Baseado nas entradas de estoque)</p>
                     </CardContent>
                 </Card>
@@ -345,7 +359,9 @@ export default function RelatoriosPage() {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">R$ {summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-2xl font-bold">
+                            {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Lucro total de todos os produtos. <br/>(Receita - Custo Estimado)</p>
                     </CardContent>
                 </Card>
@@ -355,7 +371,9 @@ export default function RelatoriosPage() {
                         <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{summaryMetrics.totalUnitsSold}</div>
+                        <div className="text-2xl font-bold">
+                            {isLoading && !isMounted ? <Skeleton className="h-8 w-16" /> : isMounted ? summaryMetrics.totalUnitsSold : "..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Número total de unidades vendidas.</p>
                     </CardContent>
                 </Card>
@@ -365,7 +383,9 @@ export default function RelatoriosPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{summaryMetrics.activeCustomers}</div>
+                        <div className="text-2xl font-bold">
+                             {isLoading && !isMounted ? <Skeleton className="h-8 w-12" /> : isMounted ? summaryMetrics.activeCustomers : "..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Número de clientes únicos.</p>
                     </CardContent>
                 </Card>
@@ -375,7 +395,9 @@ export default function RelatoriosPage() {
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{summaryMetrics.lowStockItemsCount} Produto(s)</div>
+                        <div className="text-2xl font-bold">
+                            {isLoading && !isMounted ? <Skeleton className="h-8 w-24" /> : isMounted ? `${summaryMetrics.lowStockItemsCount} Produto(s)` : "..."}
+                        </div>
                         <p className="text-xs text-muted-foreground">Produtos com menos de 10 unidades.</p>
                     </CardContent>
                 </Card>
@@ -401,7 +423,7 @@ export default function RelatoriosPage() {
                                 tickMargin={10}
                                 axisLine={false}
                               />
-                              <YAxis tickFormatter={(value) => `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`} />
+                              <YAxis tickFormatter={(value) => isMounted ? `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ""} />
                               <ChartTooltip content={<ChartTooltipContent />} />
                               <ChartLegend content={<ChartLegendContent />} />
                               <Bar dataKey="sales" fill="var(--color-sales)" radius={4}>
@@ -463,7 +485,7 @@ export default function RelatoriosPage() {
                             tickMargin={10}
                             axisLine={false}
                             />
-                            <YAxis tickFormatter={(value) => `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`} />
+                            <YAxis tickFormatter={(value) => isMounted ? `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ""} />
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <ChartLegend content={<ChartLegendContent />} />
                             <Bar dataKey="sales" fill="var(--color-sales)" radius={4}>
@@ -498,13 +520,19 @@ export default function RelatoriosPage() {
                 </div>
                 </CardHeader>
                 <CardContent>
-                    {salesProfitData.length === 0 && !isLoading ? (
+                    {(isLoading && !isMounted) ? (
+                        <div className="space-y-2 py-10">
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                        </div>
+                    ) : salesProfitData.length === 0 && isMounted ? (
                          <div className="text-center text-muted-foreground py-10 flex flex-col items-center justify-center h-full">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade.</p>
                             <p className="text-sm">Registre vendas e entradas de estoque (com custos e datas corretas) para ver esta análise.</p>
                         </div>
-                    ) : (
+                    ) : isMounted ? (
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
@@ -523,10 +551,10 @@ export default function RelatoriosPage() {
                                 <TableRow key={item.productId} className={item.costCalculableSales < item.totalSalesRecords ? "bg-destructive/5 hover:bg-destructive/10" : ""}>
                                 <TableCell className="font-medium">{item.name}</TableCell>
                                 <TableCell className="text-right">{item.unitsSold}</TableCell>
-                                <TableCell className="text-right">{item.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                                <TableCell className="text-right">{item.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                                <TableCell className="text-right font-semibold">{item.totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                                <TableCell className={`text-right font-semibold ${item.profitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{item.profitMargin.toFixed(2)}%</TableCell>
+                                <TableCell className="text-right">{isMounted ? item.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "..."}</TableCell>
+                                <TableCell className="text-right">{isMounted ? item.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "..."}</TableCell>
+                                <TableCell className="text-right font-semibold">{isMounted ? item.totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "..."}</TableCell>
+                                <TableCell className={`text-right font-semibold ${item.profitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{isMounted ? `${item.profitMargin.toFixed(2)}%` : "..."}</TableCell>
                                 <TableCell className="text-center text-xs text-muted-foreground">{item.costingCoverage}</TableCell>
                                 </TableRow>
                             ))}
@@ -535,11 +563,17 @@ export default function RelatoriosPage() {
                                 Lucratividade estimada com base nos custos de entrada (Valor Unitário) registrados em ou antes da data da venda. <br/>
                                 "Cobertura de Custo" (ex: "1/2") indica para quantas vendas foi possível calcular o custo. Se for parcial ou "0/X", os valores de Custo, Lucro e Margem podem não refletir a realidade total. <br/>
                                 Garanta que as entradas de estoque sejam registradas com custos e datas corretas antes das vendas para maior precisão.
-                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos.</span>}
+                                {isMounted && hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos.</span>}
                             </TableCaption>
                         </Table>
                         </div>
-                    )}
+                    ) : (
+                        <div className="space-y-2 py-10">
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                        </div>
+                    )
+                    }
                 </CardContent>
             </Card>
 
@@ -578,3 +612,4 @@ export default function RelatoriosPage() {
   );
 }
 
+    
