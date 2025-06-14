@@ -45,24 +45,24 @@ export interface Sale extends SaleFormValues {
   productName?: string;
 }
 
-// Used internally in RelatoriosPage for aggregation and initial mapping
+// Usado internamente na RelatoriosPage para agregação e mapeamento inicial durante o processamento de dados
 export interface ProductAnalysisData {
   productId: string;
-  name: string;
-  unitsSold: number;
-  totalRevenue: number;
-  totalCost: number;
-  costCalculableSales: number; 
-  totalSalesRecords: number;   
+  name: string;        // Nome do produto
+  unitsSold: number;   // Total de unidades vendidas deste produto
+  totalRevenue: number;// Receita total gerada por este produto
+  totalCost: number;   // Custo total estimado para as unidades vendidas deste produto
+  costCalculableSales: number; // Número de registros de venda deste produto para os quais um custo pôde ser calculado
+  totalSalesRecords: number;   // Número total de registros de venda para este produto
 }
 
-// Used for the profitability table display in RelatoriosPage, derived from ProductAnalysisData
+// Usado para a exibição da tabela de lucratividade na RelatoriosPage, derivado de ProductAnalysisData
 export interface SalesProfitData extends ProductAnalysisData {
-  totalProfit: number;
-  profitMargin: number;
-  costingCoverage: string; 
+  totalProfit: number;     // Lucro total estimado para este produto (Receita - Custo)
+  profitMargin: number;    // Margem de lucro percentual para este produto
+  costingCoverage: string; // String indicando a cobertura do cálculo de custo (ex: "5/5" ou "3/5")
 }
 
-
+    
 
     
