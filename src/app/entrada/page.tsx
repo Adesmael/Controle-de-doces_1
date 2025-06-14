@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse, Loader2 } from "lucide-react";
+import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Entry, EntryFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,7 +27,18 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getProducts, getEntries, addEntry, getProductById, updateProduct } from "@/lib/storage";
+import { getProducts, getEntries, addEntry, getProductById, updateProduct, deleteEntry } from "@/lib/storage";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const entryFormSchema = z.object({
   date: z.date({
@@ -56,6 +67,8 @@ export default function EntradaPage() {
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -65,7 +78,7 @@ export default function EntradaPage() {
         getEntries()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setEntries(storedEntries);
+      setEntries(storedEntries); // Already sorted by date descending in getEntries
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou entradas.", variant: "destructive" });
@@ -147,6 +160,42 @@ export default function EntradaPage() {
       setIsSubmitting(false);
     }
   }
+
+  const handleDeleteClick = (entry: Entry) => {
+    setEntryToDelete(entry);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteEntry = async () => {
+    if (entryToDelete) {
+      setIsSubmitting(true);
+      setShowDeleteConfirm(false);
+      try {
+        await deleteEntry(entryToDelete.id);
+        const productToUpdate = await getProductById(entryToDelete.productId);
+        if (productToUpdate) {
+          const newStock = Math.max(0, productToUpdate.stock - entryToDelete.quantity); // Prevent negative stock
+          await updateProduct({ ...productToUpdate, stock: newStock });
+        }
+        toast({
+          title: "Entrada Excluída!",
+          description: `A entrada de ${entryToDelete.productName} foi removida. Estoque atualizado.`,
+          variant: "destructive"
+        });
+        await fetchData();
+      } catch (error) {
+        console.error("Failed to delete entry:", error);
+        toast({ title: "Erro ao Excluir Entrada", description: "Não foi possível excluir a entrada.", variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+        setEntryToDelete(null);
+      }
+    } else {
+        setShowDeleteConfirm(false);
+        setEntryToDelete(null);
+    }
+  };
+
 
   if (isLoading) {
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando dados...</p></div>;
@@ -288,7 +337,7 @@ export default function EntradaPage() {
               </FormItem>
 
               <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Entrada</>}
+                {isSubmitting && !entryToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Entrada</>}
               </Button>
             </form>
           </Form>
@@ -313,6 +362,7 @@ export default function EntradaPage() {
                   <TableHead className="text-right">Qtd.</TableHead>
                   <TableHead className="text-right">Vlr. Unit.</TableHead>
                   <TableHead className="text-right">Vlr. Total</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -324,6 +374,11 @@ export default function EntradaPage() {
                     <TableCell className="text-right">{entry.quantity}</TableCell>
                     <TableCell className="text-right">R$ {entry.unitPrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-medium">R$ {entry.totalValue.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(entry)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80">
+                        <Trash2 size={16}/>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -332,6 +387,25 @@ export default function EntradaPage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => { if(!isSubmitting) setShowDeleteConfirm(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Entrada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta entrada de "{entryToDelete?.productName}" do fornecedor "{entryToDelete?.supplier}"?
+              Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { if(!isSubmitting) setEntryToDelete(null);}} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEntry} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+              {isSubmitting && entryToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Entrada"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

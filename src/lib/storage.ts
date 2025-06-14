@@ -119,11 +119,11 @@ export const deleteProduct = (id: string): Promise<void> => deleteItem(STORE_PRO
 // Entry Management functions
 export const getEntries = async (): Promise<Entry[]> => {
     const entries = await getAll<Entry>(STORE_ENTRIES);
-    // Dates from IndexedDB are typically stored as ISO strings or timestamps if not Date objects.
-    // Ensure they are Date objects for consistent handling.
     return entries.map(entry => ({ ...entry, date: new Date(entry.date) })).sort((a,b) => b.date.getTime() - a.date.getTime());
 };
 export const addEntry = (entry: Entry): Promise<IDBValidKey> => add<Entry>(STORE_ENTRIES, entry);
+export const deleteEntry = (id: string): Promise<void> => deleteItem(STORE_ENTRIES, id);
+
 
 // Sale Management functions
 export const getSales = async (): Promise<Sale[]> => {
@@ -131,38 +131,51 @@ export const getSales = async (): Promise<Sale[]> => {
     return sales.map(sale => ({ ...sale, date: new Date(sale.date) })).sort((a,b) => b.date.getTime() - a.date.getTime());
 };
 export const addSale = (sale: Sale): Promise<IDBValidKey> => add<Sale>(STORE_SALES, sale);
+export const deleteSale = (id: string): Promise<void> => deleteItem(STORE_SALES, id);
 
 // Function to initialize products if DB is empty
 export const initializeProductsDB = async (): Promise<void> => {
   try {
-    // Call getProducts defined above this function
-    const products = await getProducts();
-    if (products.length === 0) {
+    const productsFromDB = await getProducts();
+    if (productsFromDB.length === 0) {
       const store = await getStore(STORE_PRODUCTS, 'readwrite');
       const transaction = store.transaction;
       
       await new Promise<void>((resolveTransaction, rejectTransaction) => {
+        transaction.oncomplete = () => resolveTransaction();
+        transaction.onerror = (event) => {
+            console.error("Transaction error during initial product add:", transaction.error || (event.target as IDBTransaction).error);
+            rejectTransaction(transaction.error || (event.target as IDBTransaction).error);
+        };
+        transaction.onabort = () => {
+            console.error("Transaction aborted during initial product add");
+            rejectTransaction(new Error("Transaction aborted"));
+        };
+
         const addPromises = initialProductsData.map(product => {
           return new Promise<void>((resolveProductAdd, rejectProductAdd) => {
-            const request = store.add(product);
-            request.onsuccess = () => resolveProductAdd();
-            request.onerror = (event) => {
-                console.error("Error adding initial product:", (event.target as IDBRequest).error);
-                rejectProductAdd((event.target as IDBRequest).error);
+            if (transaction.db.objectStoreNames.contains(STORE_PRODUCTS)){ // ensure store still exists
+                const request = store.add(product);
+                request.onsuccess = () => resolveProductAdd();
+                request.onerror = (event) => {
+                    console.error("Error adding initial product:", (event.target as IDBRequest).error);
+                    rejectProductAdd((event.target as IDBRequest).error);
+                }
+            } else {
+                rejectProductAdd(new Error(`Object store ${STORE_PRODUCTS} not found.`));
             }
           });
         });
         
         Promise.all(addPromises)
         .then(() => {
-          transaction.oncomplete = () => resolveTransaction();
-          transaction.onerror = (event) => {
-            console.error("Transaction error during initial product add:", transaction.error || (event.target as IDBTransaction).error);
-            rejectTransaction(transaction.error || (event.target as IDBTransaction).error);
-          }
+            // On transaction complete is handled above
         })
         .catch(error => {
             console.error("Error in Promise.all for initial products:", error);
+            if (transaction.error === null && !transaction.objectStoreNames.length) { // Check if transaction is still active
+                 try { transaction.abort(); } catch (e) { console.error("Error aborting transaction:", e); }
+            }
             rejectTransaction(error);
         });
       });
@@ -249,3 +262,4 @@ if (typeof window !== 'undefined' && window.indexedDB) {
         console.error("Error opening DB for initialization:", error);
     });
 }
+

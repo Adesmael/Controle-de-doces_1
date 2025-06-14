@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent, Loader2 } from "lucide-react";
+import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Sale, SaleFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,7 +27,18 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getProducts, getSales, addSale, getProductById, updateProduct } from "@/lib/storage";
+import { getProducts, getSales, addSale, getProductById, updateProduct, deleteSale } from "@/lib/storage";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const saleFormSchema = z.object({
   date: z.date({
@@ -60,6 +71,9 @@ export default function SaidaPage() {
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -69,7 +83,7 @@ export default function SaidaPage() {
         getSales()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setSales(storedSales); 
+      setSales(storedSales); // Already sorted by date descending in getSales
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou saídas.", variant: "destructive" });
@@ -107,7 +121,6 @@ export default function SaidaPage() {
         if (product) {
           form.setValue("unitPrice", product.price);
         } else {
-          
           const fetchedProduct = await getProductById(watchedProductId);
           if (fetchedProduct) {
             form.setValue("unitPrice", fetchedProduct.price);
@@ -188,6 +201,41 @@ export default function SaidaPage() {
       setIsSubmitting(false);
     }
   }
+
+  const handleDeleteClick = (sale: Sale) => {
+    setSaleToDelete(sale);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteSale = async () => {
+    if (saleToDelete) {
+      setIsSubmitting(true);
+      setShowDeleteConfirm(false);
+      try {
+        await deleteSale(saleToDelete.id);
+        const productToUpdate = await getProductById(saleToDelete.productId);
+        if (productToUpdate) {
+          await updateProduct({ ...productToUpdate, stock: productToUpdate.stock + saleToDelete.quantity });
+        }
+        toast({
+          title: "Saída Excluída!",
+          description: `A saída de ${saleToDelete.productName} foi removida. Estoque atualizado.`,
+          variant: "destructive"
+        });
+        await fetchData();
+      } catch (error) {
+        console.error("Failed to delete sale:", error);
+        toast({ title: "Erro ao Excluir Saída", description: "Não foi possível excluir a saída.", variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+        setSaleToDelete(null);
+      }
+    } else {
+        setShowDeleteConfirm(false);
+        setSaleToDelete(null);
+    }
+  };
+
 
   if (isLoading) {
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando dados...</p></div>;
@@ -342,7 +390,7 @@ export default function SaidaPage() {
               </FormItem>
 
               <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
-                 {isSubmitting ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Saída</>}
+                 {isSubmitting && !saleToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Saída</>}
               </Button>
             </form>
           </Form>
@@ -368,6 +416,7 @@ export default function SaidaPage() {
                   <TableHead className="text-right">Vlr. Unit.</TableHead>
                   <TableHead className="text-right">Desc.</TableHead>
                   <TableHead className="text-right">Vlr. Total</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -380,6 +429,11 @@ export default function SaidaPage() {
                     <TableCell className="text-right">R$ {sale.unitPrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right">R$ {sale.discount.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-medium">R$ {sale.totalValue.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">
+                       <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(sale)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80">
+                        <Trash2 size={16}/>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -388,6 +442,25 @@ export default function SaidaPage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => { if(!isSubmitting) setShowDeleteConfirm(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Saída</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta saída de "{saleToDelete?.productName}" para o cliente "{saleToDelete?.customer}"?
+              Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { if(!isSubmitting) setSaleToDelete(null);}} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSale} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+              {isSubmitting && saleToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Saída"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
