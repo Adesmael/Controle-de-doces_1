@@ -45,28 +45,22 @@ export interface Sale extends SaleFormValues {
   productName?: string;
 }
 
-// Used internally in RelatoriosPage for aggregation
-export interface ProductAnalysis {
-  name: string;
-  totalRevenue: number;
-  totalCost: number;
-  unitsSold: number;
-  costCalculableSales: number; 
-  totalSalesRecords: number;   
-}
-
-// Used for the profitability table display in RelatoriosPage
-export interface SalesProfitData {
+// Used internally in RelatoriosPage for aggregation and initial mapping
+export interface ProductAnalysisData {
   productId: string;
   name: string;
   unitsSold: number;
   totalRevenue: number;
   totalCost: number;
+  costCalculableSales: number; 
+  totalSalesRecords: number;   
+}
+
+// Used for the profitability table display in RelatoriosPage, derived from ProductAnalysisData
+export interface SalesProfitData extends ProductAnalysisData {
   totalProfit: number;
   profitMargin: number;
   costingCoverage: string; 
-  costCalculableSales: number;
-  totalSalesRecords: number;
 }
 
 
