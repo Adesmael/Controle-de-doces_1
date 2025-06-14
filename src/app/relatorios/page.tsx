@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, AlertTriangle, Info, FileText, TrendingDown, Loader2, CalendarDays } from "lucide-react";
+import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, TrendingDown, Loader2, CalendarDays } from "lucide-react";
 import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
@@ -92,13 +92,15 @@ export default function RelatoriosPage() {
   const loadReportData = async () => {
     setIsLoading(true);
     try {
-      const [sales, products, entries] = await Promise.all([
+      const [sales, products, entriesFromDB] = await Promise.all([
         getSales(),
         getProducts(),
         getEntries() 
       ]);
       
-      const sortedEntries = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Ensure dates from DB are Date objects for entries
+      const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
+      const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
 
       // Monthly Sales (last 6 months)
@@ -109,7 +111,7 @@ export default function RelatoriosPage() {
 
 
       sales.forEach(sale => {
-        const saleDate = new Date(sale.date);
+        const saleDate = sale.date; // sale.date is already a Date object from getSales()
         if (saleDate >= sixMonthsAgo) {
           const monthYearKey = format(saleDate, "yyyy-MM");
           monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
@@ -119,7 +121,7 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00'), "MMM/yy", { locale: ptBR }),
+          month: format(new Date(key + '-02T00:00:00'), "MMM/yy", { locale: ptBR }), // Use a fixed day for month formatting
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
@@ -131,7 +133,7 @@ export default function RelatoriosPage() {
       thirtyDaysAgo.setHours(0,0,0,0);
 
       sales.forEach(sale => {
-        const saleDate = new Date(sale.date);
+        const saleDate = sale.date; // sale.date is already a Date object
         if (saleDate >= thirtyDaysAgo) {
           const dayKey = format(saleDate, "yyyy-MM-dd");
           dailySalesAgg[dayKey] = (dailySalesAgg[dayKey] || 0) + sale.totalValue;
@@ -141,7 +143,7 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00'), "dd/MM", { locale: ptBR }),
+            dateDisplay: format(new Date(key + 'T00:00:00'), "dd/MM", { locale: ptBR }), // Use a fixed time for date display formatting
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
@@ -213,11 +215,17 @@ export default function RelatoriosPage() {
         analysis.totalRevenue += sale.totalValue;
         analysis.unitsSold += sale.quantity;
         analysis.totalSalesRecords += 1;
+        
+        // Ensure sale.date is a Date object for comparison
+        const currentSaleDate = sale.date; // Already a Date object from getSales()
 
-        const relevantEntries = sortedEntries.filter(e => e.productId === sale.productId && new Date(e.date) <= new Date(sale.date));
+        const relevantEntries = sortedEntries.filter(
+          e => e.productId === sale.productId && e.date.getTime() <= currentSaleDate.getTime()
+        );
+
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          if (latestRelevantEntry.unitPrice > 0) { // Ensure unitPrice is positive for cost calculation
+          if (latestRelevantEntry.unitPrice > 0) { 
             const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
             analysis.totalCost += costForThisSaleItem;
             analysis.costCalculableSales += 1;
@@ -454,7 +462,13 @@ export default function RelatoriosPage() {
                 <CardTitle className="text-lg font-headline flex items-center gap-2">
                     <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                 </CardTitle>
-                <CardDescription>Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.</CardDescription>
+                <CardDescription>
+                    Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.
+                    <br/>
+                    <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado das 'Entradas' de estoque. 
+                    Para um cálculo preciso, certifique-se de que cada produto vendido tenha um registro de 'Entrada' com 'Valor Unitário' (custo) positivo e uma data anterior ou igual à data da venda. 
+                    A coluna "Cobertura de Custo" indica se essa informação foi encontrada para todas as vendas do produto.
+                </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {salesProfitData.length === 0 && !isLoading ? (
@@ -492,10 +506,10 @@ export default function RelatoriosPage() {
                             </TableBody>
                             <TableCaption>
                                 Lucratividade estimada com base nos custos de entrada (Valor Unitário) registrados em ou antes da data da venda. <br/>
-                                A coluna "Cobertura de Custo" indica para quantas vendas foi possível calcular o custo. Se for parcial (ex: 1/2),
-                                os valores de Custo Estimado, Lucro e Margem para esse produto podem não refletir a realidade total. <br/>
+                                A coluna "Cobertura de Custo" indica para quantas vendas foi possível calcular o custo (Ex: "1/2" significa que o custo foi encontrado para 1 de 2 vendas). Se for parcial ou "0/X",
+                                os valores de Custo Estimado, Lucro e Margem para esse produto podem não refletir a realidade total e precisam de atenção aos dados de entrada. <br/>
                                 Garanta que as entradas de estoque sejam registradas com seus respectivos custos antes das vendas para maior precisão. Produtos com custo de entrada zero também resultarão em lucro igual à receita.
-                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial (indicado na tabela e destacado em vermelho claro). Verifique os registros de entrada.</span>}
+                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente (indicado na tabela e destacado em vermelho claro). Verifique os registros de 'Entrada' para estes produtos.</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -537,6 +551,3 @@ export default function RelatoriosPage() {
     </div>
   );
 }
-
-
-    
