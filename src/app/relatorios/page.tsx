@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, TrendingDown, Loader2, CalendarDays } from "lucide-react";
+import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, TrendingDown, Loader2, CalendarDays, Receipt, ShoppingBag } from "lucide-react";
 import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
@@ -38,9 +38,11 @@ interface StockLevelData {
 
 interface SummaryMetrics {
   totalRevenue: number;
+  totalCostOfGoodsSold: number;
+  totalProfitAllProducts: number;
   activeCustomers: number;
   lowStockItemsCount: number;
-  totalProfitAllProducts: number;
+  totalUnitsSold: number;
 }
 
 const salesChartConfig = {
@@ -80,9 +82,11 @@ export default function RelatoriosPage() {
   const [salesProfitData, setSalesProfitData] = useState<SalesProfitData[]>([]);
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetrics>({
     totalRevenue: 0,
+    totalCostOfGoodsSold: 0,
+    totalProfitAllProducts: 0,
     activeCustomers: 0,
     lowStockItemsCount: 0,
-    totalProfitAllProducts: 0,
+    totalUnitsSold: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [hasIncompleteCosting, setHasIncompleteCosting] = useState(false);
@@ -92,25 +96,21 @@ export default function RelatoriosPage() {
   const loadReportData = async () => {
     setIsLoading(true);
     try {
-      const [sales, products, entriesFromDB] = await Promise.all([
+      const [salesFromDB, products, entriesFromDB] = await Promise.all([
         getSales(),
         getProducts(),
         getEntries() 
       ]);
       
-      // Ensure dates from DB are Date objects
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
-      const allSales = sales.map(s => ({...s, date: new Date(s.date)}));
+      const allSales = salesFromDB.map(s => ({...s, date: new Date(s.date)}));
 
-      // Sort entries by date ASCENDING for cost calculation
       const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
-
 
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
       sixMonthsAgo.setDate(1); 
       sixMonthsAgo.setHours(0,0,0,0);
-
 
       allSales.forEach(sale => {
         const saleDate = sale.date;
@@ -123,7 +123,7 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }), // Ensure correct month parsing
+          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }),
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
@@ -144,16 +144,17 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }), // Ensure correct date parsing
+            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }),
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
       setDailySales(processedDailySales);
 
-
       const productSalesAgg: { [productId: string]: number } = {};
+      let overallTotalUnitsSold = 0;
       allSales.forEach(sale => {
         productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
+        overallTotalUnitsSold += sale.quantity;
       });
 
       const processedTopProducts: ProductSalesData[] = Object.entries(productSalesAgg)
@@ -214,32 +215,30 @@ export default function RelatoriosPage() {
         analysis.totalSalesRecords += 1;
         
         const currentSaleDateTime = sale.date.getTime();
-
-        // Find relevant entries: same product, date on or before sale date
+        
         const relevantEntries = sortedEntries.filter(
           e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime
         );
 
         if (relevantEntries.length > 0) {
-          // The last item in sorted (ascending) relevantEntries is the latest cost entry
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          
-          // Only apply cost if unitPrice is a positive number
           if (typeof latestRelevantEntry.unitPrice === 'number' && latestRelevantEntry.unitPrice > 0) { 
             const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
             analysis.totalCost += costForThisSaleItem;
-            analysis.costCalculableSales += 1; // Increment if a valid cost was found and applied for this sale
+            analysis.costCalculableSales += 1;
           }
         }
       });
 
       let overallTotalProfit = 0;
+      let overallTotalCostOfGoodsSold = 0;
       let anyIncompleteCosting = false;
 
       const processedProductProfitData: SalesProfitData[] = Object.values(productProfitAnalysis).map(analysis => {
         const totalProfit = analysis.totalRevenue - analysis.totalCost;
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
         overallTotalProfit += totalProfit;
+        overallTotalCostOfGoodsSold += analysis.totalCost;
 
         if (analysis.costCalculableSales < analysis.totalSalesRecords) {
           anyIncompleteCosting = true;
@@ -264,9 +263,11 @@ export default function RelatoriosPage() {
 
       setSummaryMetrics({
         totalRevenue,
+        totalCostOfGoodsSold: overallTotalCostOfGoodsSold,
+        totalProfitAllProducts: overallTotalProfit,
         activeCustomers: uniqueCustomers.size,
         lowStockItemsCount,
-        totalProfitAllProducts: overallTotalProfit,
+        totalUnitsSold: overallTotalUnitsSold,
       });
 
     } catch (error) {
@@ -317,7 +318,7 @@ export default function RelatoriosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Receita Total (Geral)</CardTitle>
@@ -328,6 +329,16 @@ export default function RelatoriosPage() {
                         <p className="text-xs text-muted-foreground">Valor total de todas as vendas.</p>
                     </CardContent>
                 </Card>
+                <Card className="bg-card/70">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Custo Total (Estimado)</CardTitle>
+                        <Receipt className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">R$ {summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <p className="text-xs text-muted-foreground">Custo total estimado dos produtos vendidos. <br/>(Baseado nas entradas de estoque)</p>
+                    </CardContent>
+                </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Lucro Total (Estimado)</CardTitle>
@@ -335,7 +346,17 @@ export default function RelatoriosPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">R$ {summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground">Lucro total de todos os produtos. <br/>(Baseado nos custos de entrada disponíveis)</p>
+                        <p className="text-xs text-muted-foreground">Lucro total de todos os produtos. <br/>(Receita - Custo Estimado)</p>
+                    </CardContent>
+                </Card>
+                 <Card className="bg-card/70">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total de Vendas (Unidades)</CardTitle>
+                        <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryMetrics.totalUnitsSold}</div>
+                        <p className="text-xs text-muted-foreground">Número total de unidades vendidas.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
