@@ -99,9 +99,9 @@ export default function RelatoriosPage() {
       const [salesFromDB, products, entriesFromDB] = await Promise.all([
         getSales(),
         getProducts(),
-        getEntries() 
+        getEntries()
       ]);
-      
+
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
       const allSales = salesFromDB.map(s => ({...s, date: new Date(s.date)}));
 
@@ -109,7 +109,7 @@ export default function RelatoriosPage() {
 
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
-      sixMonthsAgo.setDate(1); 
+      sixMonthsAgo.setDate(1);
       sixMonthsAgo.setHours(0,0,0,0);
 
       allSales.forEach(sale => {
@@ -170,9 +170,9 @@ export default function RelatoriosPage() {
       setTopProducts(processedTopProducts);
 
       const processedStockLevels: StockLevelData[] = products
-        .filter(p => p.stock < 10) 
+        .filter(p => p.stock < 10)
         .sort((a,b) => a.stock - b.stock)
-        .slice(0, 10) 
+        .slice(0, 10)
         .map(product => ({
           name: product.name,
           stock: product.stock,
@@ -213,16 +213,16 @@ export default function RelatoriosPage() {
         analysis.totalRevenue += sale.totalValue;
         analysis.unitsSold += sale.quantity;
         analysis.totalSalesRecords += 1;
-        
+
         const currentSaleDateTime = sale.date.getTime();
-        
+
         const relevantEntries = sortedEntries.filter(
           e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime
         );
 
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          if (typeof latestRelevantEntry.unitPrice === 'number' && latestRelevantEntry.unitPrice > 0) { 
+          if (typeof latestRelevantEntry.unitPrice === 'number' && latestRelevantEntry.unitPrice > 0) {
             const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
             analysis.totalCost += costForThisSaleItem;
             analysis.costCalculableSales += 1;
@@ -285,7 +285,7 @@ export default function RelatoriosPage() {
 
 
   const renderChartOrMessage = (data: any[], chartComponent: React.ReactNode, message: string, minHeight: string = "h-[350px]") => {
-    if (data.length === 0 && !isLoading) { 
+    if (data.length === 0 && !isLoading) {
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}>
                 <Info size={32} className="mb-2"/>
                 <p>{message}</p>
@@ -443,7 +443,7 @@ export default function RelatoriosPage() {
                     </CardContent>
                 </Card>
             </div>
-            
+
             <Card className="mt-6">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-lg font-headline flex items-center gap-2">
@@ -485,16 +485,17 @@ export default function RelatoriosPage() {
                 </CardTitle>
                 <CardDescription>
                     Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.
-                    <br/>
-                    <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado do "Valor Unitário" (custo) dos produtos nas 'Entradas' de estoque. 
+                </CardDescription>
+                <div className="text-sm text-muted-foreground mt-1">
+                    <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado do "Valor Unitário" (custo) dos produtos nas 'Entradas' de estoque.
                     Para um cálculo preciso:
-                    <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2">
+                    <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2 mt-1">
                         <li>Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente.</li>
                         <li>O 'Valor Unitário' na 'Entrada' deve ser o custo de aquisição do produto e ser maior que zero.</li>
                         <li>A 'Data da Entrada' deve ser anterior ou igual à data da 'Saída' (venda).</li>
                     </ol>
                     A coluna "Cobertura de Custo" indica para quantas vendas foi possível encontrar e aplicar um custo válido. <span className="font-bold">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura de Custo" for "0/X", verifique seus lançamentos de 'Entrada' para o produto.</span>
-                </CardDescription>
+                </div>
                 </CardHeader>
                 <CardContent>
                     {salesProfitData.length === 0 && !isLoading ? (
