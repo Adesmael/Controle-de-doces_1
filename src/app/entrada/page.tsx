@@ -65,7 +65,7 @@ export default function EntradaPage() {
         getEntries()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setEntries(storedEntries); // Already sorted by date desc in getEntries
+      setEntries(storedEntries);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou entradas.", variant: "destructive" });
@@ -130,7 +130,7 @@ export default function EntradaPage() {
         description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${data.supplier} registrada. Estoque atualizado.`,
       });
       
-      await fetchData(); // Refetch entries and products
+      await fetchData(); 
       form.reset({
         date: new Date(),
         supplier: "",
@@ -318,7 +318,7 @@ export default function EntradaPage() {
               <TableBody>
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell>{format(new Date(entry.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{entry.supplier}</TableCell>
                     <TableCell>{entry.productName}</TableCell>
                     <TableCell className="text-right">{entry.quantity}</TableCell>

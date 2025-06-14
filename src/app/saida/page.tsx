@@ -69,7 +69,7 @@ export default function SaidaPage() {
         getSales()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setSales(storedSales); // Already sorted by date desc in getSales
+      setSales(storedSales); 
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou saídas.", variant: "destructive" });
@@ -103,11 +103,11 @@ export default function SaidaPage() {
   useEffect(() => {
     const updatePriceFromProduct = async () => {
       if (watchedProductId) {
-        const product = products.find(p => p.id === watchedProductId); // Use cached products
+        const product = products.find(p => p.id === watchedProductId); 
         if (product) {
           form.setValue("unitPrice", product.price);
         } else {
-          // If not in cache (e.g., direct load or race condition), fetch it
+          
           const fetchedProduct = await getProductById(watchedProductId);
           if (fetchedProduct) {
             form.setValue("unitPrice", fetchedProduct.price);
@@ -121,7 +121,7 @@ export default function SaidaPage() {
     };
     updatePriceFromProduct();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedProductId, products]); // products dependency ensures it re-runs if products list changes
+  }, [watchedProductId, products]); 
 
   useEffect(() => {
     const quantity = watchedQuantity || 0;
@@ -170,7 +170,7 @@ export default function SaidaPage() {
         description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${data.customer} registrada. Estoque atualizado.`,
       });
 
-      await fetchData(); // Refetch sales and products
+      await fetchData(); 
       form.reset({
         date: new Date(),
         customer: "",
@@ -373,7 +373,7 @@ export default function SaidaPage() {
               <TableBody>
                 {sales.map((sale) => (
                   <TableRow key={sale.id}>
-                    <TableCell>{format(new Date(sale.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{sale.customer}</TableCell>
                     <TableCell>{sale.productName}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>
