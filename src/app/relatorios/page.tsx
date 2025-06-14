@@ -109,17 +109,15 @@ export default function RelatoriosPage() {
         getEntries()
       ]);
 
-      // Ensure dates are Date objects
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
       const allSales = salesFromDB.map(s => ({...s, date: new Date(s.date)}));
 
-      // Sort entries by date ascending to easily find the latest relevant entry
       const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
       // --- Monthly Sales Aggregation (Last 6 months) ---
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
-      sixMonthsAgo.setDate(1); // Start from the beginning of the month
+      sixMonthsAgo.setDate(1); 
       sixMonthsAgo.setHours(0,0,0,0);
 
       allSales.forEach(sale => {
@@ -133,7 +131,7 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }), // Use -02 to ensure correct month parsing
+          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }),
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
@@ -141,7 +139,7 @@ export default function RelatoriosPage() {
 
       // --- Daily Sales Aggregation (Last 30 days) ---
       const dailySalesAgg: { [key: string]: number } = {};
-      const thirtyDaysAgo = subDays(new Date(), 29); // Include today, so 29 days back
+      const thirtyDaysAgo = subDays(new Date(), 29); 
       thirtyDaysAgo.setHours(0,0,0,0);
 
       allSales.forEach(sale => {
@@ -155,7 +153,7 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }), // Use T00:00:00Z for consistent date parsing
+            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }), 
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
@@ -179,14 +177,14 @@ export default function RelatoriosPage() {
           };
         })
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5); // Top 5
+        .slice(0, 5); 
       setTopProducts(processedTopProducts);
 
       // --- Low Stock Levels ---
       const processedStockLevels: StockLevelData[] = products
-        .filter(p => p.stock < 10) // Products with less than 10 in stock
-        .sort((a,b) => a.stock - b.stock) // Sort by stock ascending
-        .slice(0, 10) // Top 10 low stock
+        .filter(p => p.stock < 10) 
+        .sort((a,b) => a.stock - b.stock) 
+        .slice(0, 10) 
         .map(product => ({
           name: product.name,
           stock: product.stock,
@@ -204,14 +202,14 @@ export default function RelatoriosPage() {
           totalRevenue: number;
           totalCost: number;
           unitsSold: number;
-          costCalculableSales: number; // How many sales had their cost calculated
-          totalSalesRecords: number;   // Total sales records for this product
+          costCalculableSales: number; 
+          totalSalesRecords: number;   
         }
       } = {};
 
       allSales.forEach(sale => {
         const product = products.find(p => p.id === sale.productId);
-        if (!product) return; // Skip if product not found (should not happen with good data)
+        if (!product) return; 
 
         if (!productProfitAnalysis[sale.productId]) {
           productProfitAnalysis[sale.productId] = {
@@ -231,13 +229,12 @@ export default function RelatoriosPage() {
 
         const currentSaleDateTime = sale.date.getTime();
 
-        // Find relevant entries: same product, date <= sale date, and unitPrice > 0
         const relevantEntries = sortedEntries.filter(
           e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime && e.unitPrice > 0
         );
 
         if (relevantEntries.length > 0) {
-          const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; // Last one is the most recent due to ascending sort
+          const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
           if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) {
              const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
              analysis.totalCost += costForThisSaleItem;
@@ -272,7 +269,7 @@ export default function RelatoriosPage() {
           costCalculableSales: analysis.costCalculableSales,
           totalSalesRecords: analysis.totalSalesRecords,
         };
-      }).sort((a, b) => b.totalProfit - a.totalProfit); // Sort by most profitable
+      }).sort((a, b) => b.totalProfit - a.totalProfit); 
 
       setSalesProfitData(processedProductProfitData);
       setHasIncompleteCosting(anyIncompleteCosting);
@@ -336,8 +333,8 @@ export default function RelatoriosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Acompanhe as métricas chave do seu negócio. O lucro é calculado como <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (Entradas)</strong>.
-            Os cálculos de custo e lucro dependem do registro correto das entradas de estoque com seus respectivos custos unitários e datas.
+            Acompanhe as métricas chave do seu negócio. O lucro é calculado como <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (das Entradas de estoque)</strong>.
+            Os cálculos de custo e lucro dependem do registro correto das <strong className="text-primary-foreground">Entradas</strong> de estoque com seus respectivos <strong className="text-primary-foreground">Custos Unitários</strong> e <strong className="text-primary-foreground">Datas</strong>.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -513,33 +510,33 @@ export default function RelatoriosPage() {
             </Card>
 
             <Card className="mt-6">
-                <CardHeader className="pb-2">
+                 <CardHeader className="pb-2">
                     <CardTitle className="text-lg font-headline flex items-center gap-2">
                         <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                     </CardTitle>
-                     <CardDescription className="text-primary-foreground/80">
-                        Detalhes de receita, custo, lucro e margem por produto. O lucro é <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (Entradas)</strong>.
+                    <CardDescription className="text-primary-foreground/80">
+                        Detalhes de receita, custo, lucro e margem por produto. O lucro é <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (das Entradas)</strong>.
                     </CardDescription>
-                   <div className="text-sm text-muted-foreground mt-2 border border-dashed border-primary/50 p-3 rounded-md bg-primary/5">
-                        <strong className="text-primary-foreground/90 text-sm block mb-1">Como garantir a precisão do "Custo Estimado":</strong> 
-                        <p className="text-xs text-primary-foreground/80 mb-2">O "Custo Estimado" é crucial e é derivado do "Valor Unitário" (seu custo de compra) dos produtos registrados na tela de 'Entradas' de estoque. Para um cálculo preciso, siga ATENTAMENTE os seguintes passos:</p>
-                        <ol className="list-decimal list-inside text-xs text-primary-foreground/80 pl-2 space-y-1">
-                            <li><strong className="text-primary-foreground/90">Registre Entradas para Cada Produto:</strong> Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente no sistema ANTES de registrar a venda.</li>
-                            <li><strong className="text-primary-foreground/90">Valor Unitário Correto:</strong> Na tela de 'Entrada', o campo 'Valor Unitário' DEVE ser o custo que você pagou pelo produto e DEVE ser maior que zero. Não deixe zerado.</li>
-                            <li><strong className="text-primary-foreground/90">Data da Entrada Anterior à Venda:</strong> A 'Data da Entrada' do custo DEVE ser anterior ou igual à 'Data da Saída' (venda) para que o custo seja corretamente associado. O sistema usará a entrada de custo mais recente que atenda a essa condição.</li>
+                   <div className="mt-2 text-sm text-muted-foreground border border-dashed border-primary/50 p-3 rounded-md bg-primary/5">
+                        <strong className="block mb-1 text-sm text-primary-foreground/90">Como garantir a precisão do "Custo Estimado":</strong> 
+                        <p className="mb-2 text-xs text-primary-foreground/80">O "Custo Estimado" é crucial e é derivado do <strong className="text-primary-foreground/90">"Valor Unitário"</strong> (seu custo de compra) dos produtos registrados na tela de <strong className="text-primary-foreground/90">'Entradas'</strong> de estoque. Para um cálculo preciso, siga ATENTAMENTE os seguintes passos:</p>
+                        <ol className="pl-2 space-y-1 text-xs list-decimal list-inside text-primary-foreground/80">
+                            <li><strong className="text-primary-foreground/90">Registre Entradas para Cada Produto Vendido:</strong> Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente no sistema.</li>
+                            <li><strong className="text-primary-foreground/90">Valor Unitário Correto na Entrada:</strong> Na tela de 'Entrada', o campo 'Valor Unitário' DEVE ser o custo que você pagou pelo produto e DEVE ser <strong className="text-destructive">MAIOR QUE ZERO</strong>. Não deixe zerado ou em branco.</li>
+                            <li><strong className="text-primary-foreground/90">Data da Entrada Anterior ou Igual à Venda:</strong> A 'Data da Entrada' do custo DEVE ser <strong className="text-primary-foreground/90">ANTERIOR ou IGUAL</strong> à 'Data da Saída' (venda) para que o custo seja corretamente associado. O sistema usará a entrada de custo mais recente que atenda a essa condição.</li>
                         </ol>
-                        <p className="text-xs text-primary-foreground/80 mt-2">A coluna "Cobertura de Custo" (ex: "1/2") na tabela abaixo indica para quantas vendas do produto foi possível encontrar e aplicar um custo válido. <strong className="text-primary-foreground/90">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura" for "0/X", verifique seus lançamentos de 'Entrada' para o produto (Valor Unitário e Data da Entrada em relação à Data da Venda).</strong></p>
+                        <p className="mt-2 text-xs text-primary-foreground/80">A coluna "Cobertura de Custo" (ex: "1/2") na tabela abaixo indica para quantas vendas do produto foi possível encontrar e aplicar um custo válido. <strong className="text-primary-foreground/90">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura" for "0/X", verifique seus lançamentos de 'Entrada' para o produto (Valor Unitário e Data da Entrada em relação à Data da Venda).</strong></p>
                     </div>
                 </CardHeader>
                 <CardContent>
                     {(isLoading && !isMounted) ? (
-                        <div className="space-y-2 py-10">
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-8 w-full" />
+                        <div className="py-10 space-y-2">
+                            <Skeleton className="w-full h-8" />
+                            <Skeleton className="w-full h-8" />
+                            <Skeleton className="w-full h-8" />
                         </div>
                     ) : salesProfitData.length === 0 && isMounted ? (
-                         <div className="text-center text-muted-foreground py-10 flex flex-col items-center justify-center h-full">
+                         <div className="flex flex-col items-center justify-center h-full py-10 text-center text-muted-foreground">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade.</p>
                             <p className="text-sm">Registre vendas e entradas de estoque (com custos e datas corretas) para ver esta análise.</p>
@@ -574,15 +571,15 @@ export default function RelatoriosPage() {
                             <TableCaption>
                                 Lucratividade estimada = Receita das Vendas - Custo das Entradas (baseado no 'Valor Unitário' nas Entradas, registradas em ou antes da data da venda). <br/>
                                 "Cobertura de Custo" (ex: "1/2") indica para quantas vendas foi possível calcular o custo. Se for parcial ou "0/X", os valores de Custo, Lucro e Margem podem não refletir a realidade total. <br/>
-                                Garanta que as entradas de estoque sejam registradas com custos (Valor Unitário > 0) e datas corretas antes das vendas para maior precisão.
-                                {isMounted && hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos (Valor Unitário e Data).</span>}
+                                Garanta que as entradas de estoque sejam registradas com custos (Valor Unitário > 0) e datas corretas (anteriores ou iguais às vendas) para maior precisão.
+                                {isMounted && hasIncompleteCosting && <span className="block mt-1 text-xs text-destructive">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos (Valor Unitário e Data).</span>}
                             </TableCaption>
                         </Table>
                         </div>
                     ) : (
-                        <div className="space-y-2 py-10">
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-8 w-full" />
+                        <div className="py-10 space-y-2">
+                            <Skeleton className="w-full h-8" />
+                            <Skeleton className="w-full h-8" />
                         </div>
                     )
                     }
@@ -629,5 +626,7 @@ export default function RelatoriosPage() {
 
 
 
+
+    
 
     
