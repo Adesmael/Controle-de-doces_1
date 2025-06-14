@@ -2,9 +2,12 @@
 import type { Product, Entry, Sale } from './types';
 import { initialProductsData } from './products'; 
 
-const PRODUCTS_KEY = 'bananaBlissApp_products';
-const ENTRIES_KEY = 'bananaBlissApp_entries';
-const SALES_KEY = 'bananaBlissApp_sales';
+// Adjusted storage keys for the new app name
+const APP_PREFIX = 'controleDocesApp_';
+const PRODUCTS_KEY = `${APP_PREFIX}products`;
+const ENTRIES_KEY = `${APP_PREFIX}entries`;
+const SALES_KEY = `${APP_PREFIX}sales`;
+
 
 // Product Management
 export const getStoredProducts = (): Product[] => {

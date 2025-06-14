@@ -29,25 +29,31 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
 
   useEffect(() => {
-    const storedCart = localStorage.getItem('bananaBlissCart');
-    if (storedCart) {
-      setCartItems(JSON.parse(storedCart));
-    }
-    const storedPromotion = localStorage.getItem('bananaBlissPromotion');
-    if (storedPromotion) {
-      setAppliedPromotion(JSON.parse(storedPromotion));
+    if (typeof window !== 'undefined') {
+      const storedCart = localStorage.getItem('controleDoces_cart');
+      if (storedCart) {
+        setCartItems(JSON.parse(storedCart));
+      }
+      const storedPromotion = localStorage.getItem('controleDoces_promotion');
+      if (storedPromotion) {
+        setAppliedPromotion(JSON.parse(storedPromotion));
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('bananaBlissCart', JSON.stringify(cartItems));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('controleDoces_cart', JSON.stringify(cartItems));
+    }
   }, [cartItems]);
 
   useEffect(() => {
-    if (appliedPromotion) {
-      localStorage.setItem('bananaBlissPromotion', JSON.stringify(appliedPromotion));
-    } else {
-      localStorage.removeItem('bananaBlissPromotion');
+    if (typeof window !== 'undefined') {
+      if (appliedPromotion) {
+        localStorage.setItem('controleDoces_promotion', JSON.stringify(appliedPromotion));
+      } else {
+        localStorage.removeItem('controleDoces_promotion');
+      }
     }
   }, [appliedPromotion]);
 

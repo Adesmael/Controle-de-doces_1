@@ -10,27 +10,6 @@ export interface Product {
   dataAiHint?: string;
 }
 
-export interface CartItem extends Product {
-  quantity: number;
-  originalPrice?: number; 
-}
-
-export interface Order {
-  id: string;
-  items: CartItem[];
-  subtotal: number;
-  taxes: number; 
-  total: number;
-  customerName?: string; 
-  customerEmail?: string; 
-  promotionApplied?: {
-    message: string;
-    discountedProductId?: string;
-    discountPercentage?: number;
-  };
-  createdAt: Date | string; 
-}
-
 export interface Promotion {
   promotionMessage: string;
   discountedProductId?: string;
