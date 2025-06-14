@@ -45,7 +45,17 @@ export interface Sale extends SaleFormValues {
   productName?: string;
 }
 
-// New type for sales profit data
+// Used internally in RelatoriosPage for aggregation
+export interface ProductAnalysis {
+  name: string;
+  totalRevenue: number;
+  totalCost: number;
+  unitsSold: number;
+  costCalculableSales: number; 
+  totalSalesRecords: number;   
+}
+
+// Used for the profitability table display in RelatoriosPage
 export interface SalesProfitData {
   productId: string;
   name: string;
@@ -60,3 +70,5 @@ export interface SalesProfitData {
 }
 
 
+
+    
