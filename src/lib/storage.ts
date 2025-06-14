@@ -98,3 +98,61 @@ export const restoreBackupData = (data: BackupData) => {
   if (data.entries) saveStoredEntries(data.entries.map((entry: any) => ({ ...entry, date: new Date(entry.date) })));
   if (data.sales) saveStoredSales(data.sales.map((sale: any) => ({ ...sale, date: new Date(sale.date) })));
 };
+
+
+// --- IndexedDB Setup ---
+const DB_NAME = 'ControleDocesDB';
+const DB_VERSION = 1; // Increment this when schema changes
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+        reject("IndexedDB is not supported or not available in this environment.");
+        return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('products')) {
+        db.createObjectStore('products', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('entries')) {
+        db.createObjectStore('entries', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('sales')) {
+        db.createObjectStore('sales', { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = (event) => {
+      resolve((event.target as IDBOpenDBRequest).result);
+    };
+
+    request.onerror = (event) => {
+      console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
+      reject("Error opening IndexedDB: " + (event.target as IDBOpenDBRequest).error?.name);
+    };
+  });
+};
+
+// For now, to demonstrate an initial step, we'll log that the DB can be opened.
+// This is a side effect and in a larger app might be handled in an initialization module.
+if (typeof window !== 'undefined' && window.indexedDB) {
+  openDB().then(db => {
+    console.log('ControleDocesDB setup initiated. Database opened successfully. Version:', db.version);
+    // It's good practice to close the DB if it's not being actively used by the current operation.
+    // For this initial setup, we'll just open and log.
+    // In a real migration, you'd get this db instance and pass it to your CRUD functions.
+    db.close(); 
+  }).catch(error => {
+    console.warn('Failed to open ControleDocesDB for initial setup:', error);
+  });
+}
+
+// TODO: Future steps will involve:
+// 1. Migrating getStoredProducts, saveStoredProducts to use IndexedDB (async).
+// 2. Migrating getStoredEntries, saveStoredEntries to use IndexedDB (async).
+// 3. Migrating getStoredSales, saveStoredSales to use IndexedDB (async).
+// 4. Updating components to handle asynchronous data fetching from IndexedDB.
+// 5. Updating backup/restore to use IndexedDB.

@@ -120,7 +120,7 @@ export default function ConfiguracoesPage() {
           </div>
           <CardDescription className="text-primary-foreground/80">
            Gerencie backups e outras configurações do sistema. <br/>
-           Nota: O armazenamento atual (localStorage) é limitado (geralmente 5-10MB). Para volumes maiores (ex: 50MB+), considere evoluir para IndexedDB.
+           Nota: O armazenamento atual (localStorage) é limitado (geralmente 5-10MB). Estamos evoluindo o sistema para utilizar IndexedDB para melhor escalabilidade com volumes maiores de dados (ex: 50MB+).
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
