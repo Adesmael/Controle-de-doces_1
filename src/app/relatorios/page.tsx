@@ -327,7 +327,7 @@ export default function RelatoriosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Acompanhe as métricas chave do seu negócio.
+            Acompanhe as métricas chave do seu negócio. Os cálculos de custo e lucro dependem do registro correto das entradas de estoque com seus respectivos custos unitários.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -341,7 +341,7 @@ export default function RelatoriosPage() {
                         <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Valor total de todas as vendas.</p>
+                        <p className="text-xs text-muted-foreground">Valor total de todas as vendas (Saídas) registradas.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
@@ -353,7 +353,7 @@ export default function RelatoriosPage() {
                          <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Custo total estimado dos produtos vendidos. <br/>(Baseado nas entradas de estoque)</p>
+                        <p className="text-xs text-muted-foreground">Custo estimado dos produtos vendidos, baseado no 'Valor Unitário' das Entradas de estoque.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -365,7 +365,7 @@ export default function RelatoriosPage() {
                         <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "R$ ..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Lucro total de todos os produtos. <br/>(Receita - Custo Estimado)</p>
+                        <p className="text-xs text-muted-foreground">Estimativa: Receita Total - Custo Total Estimado.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -377,7 +377,7 @@ export default function RelatoriosPage() {
                         <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-16" /> : isMounted ? summaryMetrics.totalUnitsSold : "..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Número total de unidades vendidas.</p>
+                        <p className="text-xs text-muted-foreground">Número total de unidades de produtos vendidas.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
@@ -389,7 +389,7 @@ export default function RelatoriosPage() {
                         <div className="text-2xl font-bold">
                              {isLoading && !isMounted ? <Skeleton className="h-8 w-12" /> : isMounted ? summaryMetrics.activeCustomers : "..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Número de clientes únicos.</p>
+                        <p className="text-xs text-muted-foreground">Número de clientes únicos que realizaram compras.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
@@ -401,7 +401,7 @@ export default function RelatoriosPage() {
                         <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-24" /> : isMounted ? `${summaryMetrics.lowStockItemsCount} Produto(s)` : "..."}
                         </div>
-                        <p className="text-xs text-muted-foreground">Produtos com menos de 10 unidades.</p>
+                        <p className="text-xs text-muted-foreground">Produtos com menos de 10 unidades em estoque.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -509,17 +509,17 @@ export default function RelatoriosPage() {
                         <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                     </CardTitle>
                      <CardDescription className="text-primary-foreground/80">
-                        Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.
+                        Detalhes de receita, custo, lucro e margem por produto. O lucro é <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (Entradas)</strong>.
                     </CardDescription>
-                   <div className="text-sm text-muted-foreground mt-1">
-                        <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado do "Valor Unitário" (custo) dos produtos nas 'Entradas' de estoque.
+                   <div className="text-sm text-muted-foreground mt-2">
+                        <strong className="text-primary-foreground/75 text-xs">Nota Importante sobre Custo Estimado:</strong> O "Custo Estimado" é crucial e é derivado do "Valor Unitário" (seu custo de compra) dos produtos nas 'Entradas' de estoque.
                         Para um cálculo preciso:
-                        <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2 mt-1">
-                            <li>Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente.</li>
-                            <li>O 'Valor Unitário' na 'Entrada' deve ser o custo de aquisição do produto e ser maior que zero.</li>
-                            <li>A 'Data da Entrada' deve ser anterior ou igual à data da 'Saída' (venda).</li>
+                        <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2 mt-1 space-y-0.5">
+                            <li>Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente no sistema.</li>
+                            <li>O 'Valor Unitário' na 'Entrada' deve ser o custo de aquisição do produto e ser <strong className="text-primary-foreground/90">maior que zero</strong>.</li>
+                            <li>A 'Data da Entrada' deve ser <strong className="text-primary-foreground/90">anterior ou igual</strong> à data da 'Saída' (venda) para que o custo seja corretamente associado.</li>
                         </ol>
-                        A coluna "Cobertura de Custo" indica para quantas vendas foi possível encontrar e aplicar um custo válido. <span className="font-bold">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura de Custo" for "0/X", verifique seus lançamentos de 'Entrada' para o produto.</span>
+                        A coluna "Cobertura de Custo" (ex: "1/2") indica para quantas vendas do produto foi possível encontrar e aplicar um custo válido. <strong className="text-primary-foreground/90">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura" for "0/X", verifique seus lançamentos de 'Entrada' para o produto (valor unitário e data).</strong>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -563,10 +563,10 @@ export default function RelatoriosPage() {
                             ))}
                             </TableBody>
                             <TableCaption>
-                                Lucratividade estimada com base nos custos de entrada (Valor Unitário) registrados em ou antes da data da venda. <br/>
+                                Lucratividade estimada = Receita das Vendas - Custo das Entradas (baseado no 'Valor Unitário' nas Entradas, registradas em ou antes da data da venda). <br/>
                                 "Cobertura de Custo" (ex: "1/2") indica para quantas vendas foi possível calcular o custo. Se for parcial ou "0/X", os valores de Custo, Lucro e Margem podem não refletir a realidade total. <br/>
-                                Garanta que as entradas de estoque sejam registradas com custos e datas corretas antes das vendas para maior precisão.
-                                {isMounted && hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos.</span>}
+                                Garanta que as entradas de estoque sejam registradas com custos (Valor Unitário > 0) e datas corretas antes das vendas para maior precisão.
+                                {isMounted && hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos (Valor Unitário e Data).</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -617,3 +617,4 @@ export default function RelatoriosPage() {
     
 
     
+
