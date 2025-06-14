@@ -98,12 +98,10 @@ export default function RelatoriosPage() {
         getEntries() 
       ]);
       
-      // Ensure dates from DB are Date objects for entries
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
       const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
 
-      // Monthly Sales (last 6 months)
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
       sixMonthsAgo.setDate(1); 
@@ -111,8 +109,8 @@ export default function RelatoriosPage() {
 
 
       sales.forEach(sale => {
-        const saleDate = sale.date; // sale.date is already a Date object from getSales()
-        if (saleDate >= sixMonthsAgo) {
+        const saleDate = sale.date;
+        if (saleDate.getTime() >= sixMonthsAgo.getTime()) {
           const monthYearKey = format(saleDate, "yyyy-MM");
           monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
         }
@@ -121,20 +119,19 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00'), "MMM/yy", { locale: ptBR }), // Use a fixed day for month formatting
+          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }),
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
       setMonthlySales(processedMonthlySales);
 
-      // Daily Sales (last 30 days)
       const dailySalesAgg: { [key: string]: number } = {};
       const thirtyDaysAgo = subDays(new Date(), 29);
       thirtyDaysAgo.setHours(0,0,0,0);
 
       sales.forEach(sale => {
-        const saleDate = sale.date; // sale.date is already a Date object
-        if (saleDate >= thirtyDaysAgo) {
+        const saleDate = sale.date;
+        if (saleDate.getTime() >= thirtyDaysAgo.getTime()) {
           const dayKey = format(saleDate, "yyyy-MM-dd");
           dailySalesAgg[dayKey] = (dailySalesAgg[dayKey] || 0) + sale.totalValue;
         }
@@ -143,14 +140,13 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00'), "dd/MM", { locale: ptBR }), // Use a fixed time for date display formatting
+            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }),
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
       setDailySales(processedDailySales);
 
 
-      // Top Selling Products (Units)
       const productSalesAgg: { [productId: string]: number } = {};
       sales.forEach(sale => {
         productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
@@ -168,7 +164,6 @@ export default function RelatoriosPage() {
         .slice(0, 5);
       setTopProducts(processedTopProducts);
 
-      // Low Stock Levels
       const processedStockLevels: StockLevelData[] = products
         .filter(p => p.stock < 10) 
         .sort((a,b) => a.stock - b.stock)
@@ -179,12 +174,10 @@ export default function RelatoriosPage() {
         }));
       setStockLevels(processedStockLevels);
 
-      // Summary Metrics
       const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
       const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
       const lowStockItemsCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
 
-      // Profit Analysis
       const productProfitAnalysis: {
         [productId: string]: {
           name: string;
@@ -216,11 +209,10 @@ export default function RelatoriosPage() {
         analysis.unitsSold += sale.quantity;
         analysis.totalSalesRecords += 1;
         
-        // Ensure sale.date is a Date object for comparison
-        const currentSaleDate = sale.date; // Already a Date object from getSales()
+        const currentSaleDateTime = sale.date.getTime();
 
         const relevantEntries = sortedEntries.filter(
-          e => e.productId === sale.productId && e.date.getTime() <= currentSaleDate.getTime()
+          e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime
         );
 
         if (relevantEntries.length > 0) {
@@ -467,7 +459,7 @@ export default function RelatoriosPage() {
                     <br/>
                     <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado das 'Entradas' de estoque. 
                     Para um cálculo preciso, certifique-se de que cada produto vendido tenha um registro de 'Entrada' com 'Valor Unitário' (custo) positivo e uma data anterior ou igual à data da venda. 
-                    A coluna "Cobertura de Custo" indica se essa informação foi encontrada para todas as vendas do produto.
+                    A coluna "Cobertura de Custo" indica se essa informação foi encontrada para todas as vendas do produto. <span className="font-bold">Se o "Custo Estimado" estiver R$ 0,00 e a "Cobertura de Custo" indicar "0/X", verifique seus lançamentos de 'Entrada'.</span>
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -551,3 +543,4 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+

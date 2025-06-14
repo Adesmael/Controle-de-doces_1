@@ -58,3 +58,4 @@ export interface SalesProfitData {
   costCalculableSales: number;
   totalSalesRecords: number;
 }
+
