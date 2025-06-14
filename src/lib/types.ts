@@ -44,3 +44,17 @@ export interface Sale extends SaleFormValues {
   totalValue: number;
   productName?: string;
 }
+
+// New type for sales profit data
+export interface SalesProfitData {
+  productId: string;
+  name: string;
+  unitsSold: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  profitMargin: number;
+  costingCoverage: string; 
+  costCalculableSales: number;
+  totalSalesRecords: number;
+}
