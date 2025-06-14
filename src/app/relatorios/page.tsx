@@ -220,7 +220,6 @@ export default function RelatoriosPage() {
       });
 
       allSales.forEach(sale => {
-        // Descomente as linhas abaixo para depurar o cálculo de custo para cada venda
         // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Processando Venda para ProdutoID ${sale.productId} ('${sale.productName || 'N/A'}'), Cliente ${sale.customer}, Data ${sale.date.toISOString()}, Qtd ${sale.quantity}, Valor Total Venda ${sale.totalValue}`);
         
         const analysis = productAnalysisMap.get(sale.productId);
@@ -236,7 +235,6 @@ export default function RelatoriosPage() {
         const currentSaleDateTime = sale.date.getTime();
         // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Data da venda (timestamp): ${currentSaleDateTime} para ${analysis.productName}`);
 
-        // Find relevant entries: same product, entry date <= sale date, entry unitPrice (cost) > 0
         const relevantEntries = sortedEntries.filter(
           entry => entry.productId === sale.productId && entry.date.getTime() <= currentSaleDateTime && entry.unitPrice > 0
         );
@@ -249,22 +247,19 @@ export default function RelatoriosPage() {
 
 
         if (relevantEntries.length > 0) {
-          // The last entry in relevantEntries is the most recent one due to prior sorting of sortedEntries (ascending)
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
           // console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}:`, {date: latestRelevantEntry.date.toISOString(), unitPrice: latestRelevantEntry.unitPrice, supplier: latestRelevantEntry.supplier, id: latestRelevantEntry.id });
           
-          // We already filtered for unitPrice > 0 in relevantEntries, but this is a defensive check.
           if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) { 
              const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
              analysis.totalCost += costForThisSaleItem;
              analysis.costCalculableSalesCount += 1; 
             //  console.log(`--- RELATORIOS: [VENDA ID: ${sale.id}] Custo calculado para esta venda de ${analysis.productName}: ${costForThisSaleItem} (Custo Unit. da Entrada ${latestRelevantEntry.unitPrice} * Qtd Vendida ${sale.quantity})`);
           } else {
-            // This case should ideally not be hit if relevantEntries filter is correct.
             // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Última entrada relevante para ${analysis.productName} tem custo unitário ZERO ou é inválida (inesperado). Não será usada para custo.`);
           }
         } else {
-        //   console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida (mesmo produto, data anterior/igual à venda, custo unitário > 0) encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
+          // console.warn(`--- RELATORIOS: [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida (mesmo produto, data anterior/igual à venda, custo unitário > 0) encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
         }
       });
       // console.log("--- RELATORIOS: Fim Análise de Lucratividade (por produto) ---", productAnalysisMap);
@@ -310,7 +305,7 @@ export default function RelatoriosPage() {
       // console.log("--- RELATORIOS: Métricas de Resumo Finais:", {totalRevenue, overallTotalCostOfGoodsSold, overallTotalProfit, uniqueCustomersSize: uniqueCustomers.size, lowStockItemsCount, overallTotalUnitsSold});
 
     } catch (error) {
-      console.error("--- RELATORIOS: Falha ao carregar dados do relatório:", error);
+      // console.error("--- RELATORIOS: Falha ao carregar dados do relatório:", error);
       toast({ title: "Erro ao Gerar Relatórios", description: "Não foi possível carregar os dados para os relatórios.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -655,3 +650,4 @@ export default function RelatoriosPage() {
   );
 }
     
+
