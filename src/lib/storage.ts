@@ -12,6 +12,8 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 const openDB = (): Promise<IDBDatabase> => {
   if (typeof window === 'undefined' || !window.indexedDB) {
+    // This case should ideally not be reached if initializeProductsDB is only called in browser.
+    // console.warn("IndexedDB not supported or not available in this environment.");
     return Promise.reject(new Error("IndexedDB is not supported or not available in this environment."));
   }
   if (dbPromise) {
@@ -37,7 +39,6 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onsuccess = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      // Close the DB connection if an older version is open elsewhere in the same browser context
       db.onversionchange = () => {
         db.close();
         alert("Uma nova versão da página está pronta. Por favor, recarregue!");
@@ -48,7 +49,7 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onerror = (event) => {
       console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
-      dbPromise = null; // Reset promise if an error occurs
+      dbPromise = null; 
       reject(new Error("Error opening IndexedDB: " + (event.target as IDBOpenDBRequest).error?.name));
     };
   });
@@ -118,35 +119,6 @@ const clear = async (storeName: string): Promise<void> => {
 };
 
 
-// Initialize Products
-export const initializeProductsDB = async (): Promise<void> => {
-  try {
-    const products = await getProducts();
-    if (products.length === 0) {
-      const store = await getStore(STORE_PRODUCTS, 'readwrite');
-      const transaction = store.transaction;
-      await Promise.all(initialProductsData.map(product => {
-        return new Promise<void>((resolve, reject) => {
-          const request = store.add(product);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }));
-      return new Promise((resolve, reject) => {
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-      });
-    }
-  } catch (error) {
-    console.error("Failed to initialize products in IndexedDB", error);
-  }
-};
-// Call initialization once. This is a side effect, might be better handled in app root.
-if (typeof window !== 'undefined') {
-  initializeProductsDB();
-}
-
-
 // Product Management
 export const getProducts = (): Promise<Product[]> => getAll<Product>(STORE_PRODUCTS);
 export const getProductById = (id: string): Promise<Product | undefined> => getById<Product>(STORE_PRODUCTS, id);
@@ -168,6 +140,30 @@ export const getSales = async (): Promise<Sale[]> => {
 };
 export const addSale = (sale: Sale): Promise<IDBValidKey> => add<Sale>(STORE_SALES, sale);
 
+// Initialize Products - Defined after getProducts and other dependencies.
+export const initializeProductsDB = async (): Promise<void> => {
+  try {
+    const products = await getProducts();
+    if (products.length === 0) {
+      const store = await getStore(STORE_PRODUCTS, 'readwrite');
+      const transaction = store.transaction;
+      await Promise.all(initialProductsData.map(product => {
+        return new Promise<void>((resolveProductAdd, rejectProductAdd) => {
+          const request = store.add(product);
+          request.onsuccess = () => resolveProductAdd();
+          request.onerror = () => rejectProductAdd(request.error);
+        });
+      }));
+      // Wait for the transaction to complete
+      await new Promise<void>((resolveTransaction, rejectTransaction) => {
+        transaction.oncomplete = () => resolveTransaction();
+        transaction.onerror = (event) => rejectTransaction(transaction.error || (event.target as IDBTransaction).error);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to initialize products in IndexedDB", error);
+  }
+};
 
 // Backup/Restore
 export interface BackupData {
@@ -196,18 +192,25 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     const entryStore = await getStore(STORE_ENTRIES, 'readwrite');
     await new Promise<void>((resolve, reject) => { const req = entryStore.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
     for (const entry of data.entries) {
-        // Ensure dates are Date objects
       await new Promise<void>((resolve, reject) => { const req = entryStore.add({...entry, date: new Date(entry.date)}); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
     }
 
     const saleStore = await getStore(STORE_SALES, 'readwrite');
     await new Promise<void>((resolve, reject) => { const req = saleStore.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
     for (const sale of data.sales) {
-         // Ensure dates are Date objects
       await new Promise<void>((resolve, reject) => { const req = saleStore.add({...sale, date: new Date(sale.date)}); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
     }
   } catch (error) {
     console.error("Error restoring data to IndexedDB", error);
-    throw error; // Re-throw to be caught by the calling UI
+    throw error; 
   }
 };
+
+// Call initialization once. This is a side effect.
+// It's generally better to call this from an application entry point (e.g., root layout's useEffect)
+// to ensure the environment is fully set up.
+if (typeof window !== 'undefined' && window.indexedDB) {
+  initializeProductsDB().catch(error => {
+      console.error("Error during top-level initializeProductsDB:", error);
+  });
+}
