@@ -109,14 +109,17 @@ export default function RelatoriosPage() {
         getEntries()
       ]);
 
+      // Ensure dates are Date objects
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
       const allSales = salesFromDB.map(s => ({...s, date: new Date(s.date)}));
 
+      // Sort entries by date ascending to easily find the latest relevant entry
       const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
+      // --- Monthly Sales Aggregation (Last 6 months) ---
       const monthlySalesAgg: { [key: string]: number } = {};
       const sixMonthsAgo = subMonths(new Date(), 5);
-      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setDate(1); // Start from the beginning of the month
       sixMonthsAgo.setHours(0,0,0,0);
 
       allSales.forEach(sale => {
@@ -130,14 +133,15 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }),
+          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }), // Use -02 to ensure correct month parsing
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
       setMonthlySales(processedMonthlySales);
 
+      // --- Daily Sales Aggregation (Last 30 days) ---
       const dailySalesAgg: { [key: string]: number } = {};
-      const thirtyDaysAgo = subDays(new Date(), 29);
+      const thirtyDaysAgo = subDays(new Date(), 29); // Include today, so 29 days back
       thirtyDaysAgo.setHours(0,0,0,0);
 
       allSales.forEach(sale => {
@@ -151,12 +155,14 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }),
+            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }), // Use T00:00:00Z for consistent date parsing
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
       setDailySales(processedDailySales);
 
+
+      // --- Top Selling Products (Units) ---
       const productSalesAgg: { [productId: string]: number } = {};
       let overallTotalUnitsSold = 0;
       allSales.forEach(sale => {
@@ -173,19 +179,21 @@ export default function RelatoriosPage() {
           };
         })
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5);
+        .slice(0, 5); // Top 5
       setTopProducts(processedTopProducts);
 
+      // --- Low Stock Levels ---
       const processedStockLevels: StockLevelData[] = products
-        .filter(p => p.stock < 10)
-        .sort((a,b) => a.stock - b.stock)
-        .slice(0, 10)
+        .filter(p => p.stock < 10) // Products with less than 10 in stock
+        .sort((a,b) => a.stock - b.stock) // Sort by stock ascending
+        .slice(0, 10) // Top 10 low stock
         .map(product => ({
           name: product.name,
           stock: product.stock,
         }));
       setStockLevels(processedStockLevels);
 
+      // --- Summary Metrics & Profitability Analysis ---
       const totalRevenue = allSales.reduce((sum, sale) => sum + sale.totalValue, 0);
       const uniqueCustomers = new Set(allSales.map(sale => sale.customer.toLowerCase().trim()));
       const lowStockItemsCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
@@ -196,14 +204,14 @@ export default function RelatoriosPage() {
           totalRevenue: number;
           totalCost: number;
           unitsSold: number;
-          costCalculableSales: number;
-          totalSalesRecords: number;
+          costCalculableSales: number; // How many sales had their cost calculated
+          totalSalesRecords: number;   // Total sales records for this product
         }
       } = {};
 
       allSales.forEach(sale => {
         const product = products.find(p => p.id === sale.productId);
-        if (!product) return;
+        if (!product) return; // Skip if product not found (should not happen with good data)
 
         if (!productProfitAnalysis[sale.productId]) {
           productProfitAnalysis[sale.productId] = {
@@ -223,15 +231,18 @@ export default function RelatoriosPage() {
 
         const currentSaleDateTime = sale.date.getTime();
 
+        // Find relevant entries: same product, date <= sale date, and unitPrice > 0
         const relevantEntries = sortedEntries.filter(
           e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime && e.unitPrice > 0
         );
 
         if (relevantEntries.length > 0) {
-          const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
-          analysis.totalCost += costForThisSaleItem;
-          analysis.costCalculableSales += 1;
+          const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; // Last one is the most recent due to ascending sort
+          if (latestRelevantEntry && latestRelevantEntry.unitPrice > 0) {
+             const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
+             analysis.totalCost += costForThisSaleItem;
+             analysis.costCalculableSales += 1;
+          }
         }
       });
 
@@ -261,7 +272,7 @@ export default function RelatoriosPage() {
           costCalculableSales: analysis.costCalculableSales,
           totalSalesRecords: analysis.totalSalesRecords,
         };
-      }).sort((a, b) => b.totalProfit - a.totalProfit);
+      }).sort((a, b) => b.totalProfit - a.totalProfit); // Sort by most profitable
 
       setSalesProfitData(processedProductProfitData);
       setHasIncompleteCosting(anyIncompleteCosting);
@@ -509,15 +520,15 @@ export default function RelatoriosPage() {
                      <CardDescription className="text-primary-foreground/80">
                         Detalhes de receita, custo, lucro e margem por produto. O lucro é <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (Entradas)</strong>.
                     </CardDescription>
-                   <div className="text-sm text-muted-foreground mt-2">
-                        <strong className="text-primary-foreground/75 text-xs">Nota Importante sobre Custo Estimado:</strong> O "Custo Estimado" é crucial e é derivado do "Valor Unitário" (seu custo de compra) dos produtos nas 'Entradas' de estoque.
-                        Para um cálculo preciso:
-                        <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2 mt-1 space-y-0.5">
-                            <li>Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente no sistema.</li>
-                            <li>O 'Valor Unitário' na 'Entrada' deve ser o custo de aquisição do produto e ser <strong className="text-primary-foreground/90">maior que zero</strong>.</li>
-                            <li>A 'Data da Entrada' deve ser <strong className="text-primary-foreground/90">anterior ou igual</strong> à data da 'Saída' (venda) para que o custo seja corretamente associado.</li>
+                   <div className="text-sm text-muted-foreground mt-2 border border-dashed border-primary/50 p-3 rounded-md bg-primary/5">
+                        <strong className="text-primary-foreground/90 text-sm block mb-1">Como garantir a precisão do "Custo Estimado":</strong> 
+                        <p className="text-xs text-primary-foreground/80 mb-2">O "Custo Estimado" é crucial e é derivado do "Valor Unitário" (seu custo de compra) dos produtos registrados na tela de 'Entradas' de estoque. Para um cálculo preciso, siga ATENTAMENTE os seguintes passos:</p>
+                        <ol className="list-decimal list-inside text-xs text-primary-foreground/80 pl-2 space-y-1">
+                            <li><strong className="text-primary-foreground/90">Registre Entradas para Cada Produto:</strong> Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente no sistema ANTES de registrar a venda.</li>
+                            <li><strong className="text-primary-foreground/90">Valor Unitário Correto:</strong> Na tela de 'Entrada', o campo 'Valor Unitário' DEVE ser o custo que você pagou pelo produto e DEVE ser maior que zero. Não deixe zerado.</li>
+                            <li><strong className="text-primary-foreground/90">Data da Entrada Anterior à Venda:</strong> A 'Data da Entrada' do custo DEVE ser anterior ou igual à 'Data da Saída' (venda) para que o custo seja corretamente associado. O sistema usará a entrada de custo mais recente que atenda a essa condição.</li>
                         </ol>
-                        A coluna "Cobertura de Custo" (ex: "1/2") indica para quantas vendas do produto foi possível encontrar e aplicar um custo válido. <strong className="text-primary-foreground/90">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura" for "0/X", verifique seus lançamentos de 'Entrada' para o produto (valor unitário e data).</strong>
+                        <p className="text-xs text-primary-foreground/80 mt-2">A coluna "Cobertura de Custo" (ex: "1/2") na tabela abaixo indica para quantas vendas do produto foi possível encontrar e aplicar um custo válido. <strong className="text-primary-foreground/90">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura" for "0/X", verifique seus lançamentos de 'Entrada' para o produto (Valor Unitário e Data da Entrada em relação à Data da Venda).</strong></p>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -617,3 +628,6 @@ export default function RelatoriosPage() {
     
 
 
+
+
+    
