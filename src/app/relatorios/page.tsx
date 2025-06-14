@@ -98,7 +98,11 @@ export default function RelatoriosPage() {
         getEntries() 
       ]);
       
+      // Ensure dates from DB are Date objects
       const entries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
+      const allSales = sales.map(s => ({...s, date: new Date(s.date)}));
+
+      // Sort entries by date ASCENDING for cost calculation
       const sortedEntries = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
 
@@ -108,7 +112,7 @@ export default function RelatoriosPage() {
       sixMonthsAgo.setHours(0,0,0,0);
 
 
-      sales.forEach(sale => {
+      allSales.forEach(sale => {
         const saleDate = sale.date;
         if (saleDate.getTime() >= sixMonthsAgo.getTime()) {
           const monthYearKey = format(saleDate, "yyyy-MM");
@@ -119,7 +123,7 @@ export default function RelatoriosPage() {
       const processedMonthlySales: MonthlySalesData[] = Object.entries(monthlySalesAgg)
         .map(([key, total]) => ({
           yearMonth: key,
-          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }),
+          month: format(new Date(key + '-02T00:00:00Z'), "MMM/yy", { locale: ptBR }), // Ensure correct month parsing
           sales: total,
         }))
         .sort((a,b) => a.yearMonth.localeCompare(b.yearMonth));
@@ -129,7 +133,7 @@ export default function RelatoriosPage() {
       const thirtyDaysAgo = subDays(new Date(), 29);
       thirtyDaysAgo.setHours(0,0,0,0);
 
-      sales.forEach(sale => {
+      allSales.forEach(sale => {
         const saleDate = sale.date;
         if (saleDate.getTime() >= thirtyDaysAgo.getTime()) {
           const dayKey = format(saleDate, "yyyy-MM-dd");
@@ -140,7 +144,7 @@ export default function RelatoriosPage() {
       const processedDailySales: DailySalesData[] = Object.entries(dailySalesAgg)
         .map(([key, total]) => ({
             fullDate: key,
-            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }),
+            dateDisplay: format(new Date(key + 'T00:00:00Z'), "dd/MM", { locale: ptBR }), // Ensure correct date parsing
             sales: total,
         }))
         .sort((a,b) => a.fullDate.localeCompare(b.fullDate));
@@ -148,7 +152,7 @@ export default function RelatoriosPage() {
 
 
       const productSalesAgg: { [productId: string]: number } = {};
-      sales.forEach(sale => {
+      allSales.forEach(sale => {
         productSalesAgg[sale.productId] = (productSalesAgg[sale.productId] || 0) + sale.quantity;
       });
 
@@ -174,8 +178,8 @@ export default function RelatoriosPage() {
         }));
       setStockLevels(processedStockLevels);
 
-      const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
-      const uniqueCustomers = new Set(sales.map(sale => sale.customer.toLowerCase().trim()));
+      const totalRevenue = allSales.reduce((sum, sale) => sum + sale.totalValue, 0);
+      const uniqueCustomers = new Set(allSales.map(sale => sale.customer.toLowerCase().trim()));
       const lowStockItemsCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
 
       const productProfitAnalysis: {
@@ -189,7 +193,7 @@ export default function RelatoriosPage() {
         }
       } = {};
 
-      sales.forEach(sale => {
+      allSales.forEach(sale => {
         const product = products.find(p => p.id === sale.productId);
         if (!product) return;
 
@@ -211,16 +215,20 @@ export default function RelatoriosPage() {
         
         const currentSaleDateTime = sale.date.getTime();
 
+        // Find relevant entries: same product, date on or before sale date
         const relevantEntries = sortedEntries.filter(
           e => e.productId === sale.productId && e.date.getTime() <= currentSaleDateTime
         );
 
         if (relevantEntries.length > 0) {
+          // The last item in sorted (ascending) relevantEntries is the latest cost entry
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
-          if (latestRelevantEntry.unitPrice > 0) { 
+          
+          // Only apply cost if unitPrice is a positive number
+          if (typeof latestRelevantEntry.unitPrice === 'number' && latestRelevantEntry.unitPrice > 0) { 
             const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
             analysis.totalCost += costForThisSaleItem;
-            analysis.costCalculableSales += 1;
+            analysis.costCalculableSales += 1; // Increment if a valid cost was found and applied for this sale
           }
         }
       });
@@ -457,9 +465,14 @@ export default function RelatoriosPage() {
                 <CardDescription>
                     Detalhes de receita, custo, lucro e margem por produto. Ordenado por maior lucro.
                     <br/>
-                    <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado das 'Entradas' de estoque. 
-                    Para um cálculo preciso, certifique-se de que cada produto vendido tenha um registro de 'Entrada' com 'Valor Unitário' (custo) positivo e uma data anterior ou igual à data da venda. 
-                    A coluna "Cobertura de Custo" indica se essa informação foi encontrada para todas as vendas do produto. <span className="font-bold">Se o "Custo Estimado" estiver R$ 0,00 e a "Cobertura de Custo" indicar "0/X", verifique seus lançamentos de 'Entrada'.</span>
+                    <strong className="text-primary-foreground/75 text-xs">Nota Importante:</strong> O "Custo Estimado" é crucial para esta análise e é derivado do "Valor Unitário" (custo) dos produtos nas 'Entradas' de estoque. 
+                    Para um cálculo preciso:
+                    <ol className="list-decimal list-inside text-xs text-primary-foreground/70 pl-2">
+                        <li>Certifique-se de que cada produto vendido tenha um registro de 'Entrada' correspondente.</li>
+                        <li>O 'Valor Unitário' na 'Entrada' deve ser o custo de aquisição do produto e ser maior que zero.</li>
+                        <li>A 'Data da Entrada' deve ser anterior ou igual à data da 'Saída' (venda).</li>
+                    </ol>
+                    A coluna "Cobertura de Custo" indica para quantas vendas foi possível encontrar e aplicar um custo válido. <span className="font-bold">Se "Custo Estimado" estiver R$ 0,00 ou a "Cobertura de Custo" for "0/X", verifique seus lançamentos de 'Entrada' para o produto.</span>
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -467,7 +480,7 @@ export default function RelatoriosPage() {
                          <div className="text-center text-muted-foreground py-10 flex flex-col items-center justify-center h-full">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade.</p>
-                            <p className="text-sm">Registre vendas e entradas de estoque (com custos) para ver esta análise.</p>
+                            <p className="text-sm">Registre vendas e entradas de estoque (com custos e datas corretas) para ver esta análise.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -498,10 +511,9 @@ export default function RelatoriosPage() {
                             </TableBody>
                             <TableCaption>
                                 Lucratividade estimada com base nos custos de entrada (Valor Unitário) registrados em ou antes da data da venda. <br/>
-                                A coluna "Cobertura de Custo" indica para quantas vendas foi possível calcular o custo (Ex: "1/2" significa que o custo foi encontrado para 1 de 2 vendas). Se for parcial ou "0/X",
-                                os valores de Custo Estimado, Lucro e Margem para esse produto podem não refletir a realidade total e precisam de atenção aos dados de entrada. <br/>
-                                Garanta que as entradas de estoque sejam registradas com seus respectivos custos antes das vendas para maior precisão. Produtos com custo de entrada zero também resultarão em lucro igual à receita.
-                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente (indicado na tabela e destacado em vermelho claro). Verifique os registros de 'Entrada' para estes produtos.</span>}
+                                "Cobertura de Custo" (ex: "1/2") indica para quantas vendas foi possível calcular o custo. Se for parcial ou "0/X", os valores de Custo, Lucro e Margem podem não refletir a realidade total. <br/>
+                                Garanta que as entradas de estoque sejam registradas com custos e datas corretas antes das vendas para maior precisão.
+                                {hasIncompleteCosting && <span className="block text-destructive text-xs mt-1">Atenção: Alguns produtos têm cálculo de custo parcial ou ausente. Verifique os registros de 'Entrada' para estes produtos.</span>}
                             </TableCaption>
                         </Table>
                         </div>

@@ -119,6 +119,8 @@ export const deleteProduct = (id: string): Promise<void> => deleteItem(STORE_PRO
 // Entry Management functions
 export const getEntries = async (): Promise<Entry[]> => {
     const entries = await getAll<Entry>(STORE_ENTRIES);
+    // Dates from IndexedDB are typically stored as ISO strings or timestamps if not Date objects.
+    // Ensure they are Date objects for consistent handling.
     return entries.map(entry => ({ ...entry, date: new Date(entry.date) })).sort((a,b) => b.date.getTime() - a.date.getTime());
 };
 export const addEntry = (entry: Entry): Promise<IDBValidKey> => add<Entry>(STORE_ENTRIES, entry);
@@ -133,30 +135,41 @@ export const addSale = (sale: Sale): Promise<IDBValidKey> => add<Sale>(STORE_SAL
 // Function to initialize products if DB is empty
 export const initializeProductsDB = async (): Promise<void> => {
   try {
-    const products = await getProducts(); // This must be defined before this function
+    // Call getProducts defined above this function
+    const products = await getProducts();
     if (products.length === 0) {
       const store = await getStore(STORE_PRODUCTS, 'readwrite');
       const transaction = store.transaction;
       
-      // Wrap all add operations in a new promise to await transaction completion
       await new Promise<void>((resolveTransaction, rejectTransaction) => {
-        Promise.all(initialProductsData.map(product => {
+        const addPromises = initialProductsData.map(product => {
           return new Promise<void>((resolveProductAdd, rejectProductAdd) => {
             const request = store.add(product);
             request.onsuccess = () => resolveProductAdd();
-            request.onerror = (event) => rejectProductAdd((event.target as IDBRequest).error);
+            request.onerror = (event) => {
+                console.error("Error adding initial product:", (event.target as IDBRequest).error);
+                rejectProductAdd((event.target as IDBRequest).error);
+            }
           });
-        }))
+        });
+        
+        Promise.all(addPromises)
         .then(() => {
           transaction.oncomplete = () => resolveTransaction();
-          transaction.onerror = (event) => rejectTransaction(transaction.error || (event.target as IDBTransaction).error);
+          transaction.onerror = (event) => {
+            console.error("Transaction error during initial product add:", transaction.error || (event.target as IDBTransaction).error);
+            rejectTransaction(transaction.error || (event.target as IDBTransaction).error);
+          }
         })
-        .catch(rejectTransaction); // Catch errors from Promise.all (individual adds)
+        .catch(error => {
+            console.error("Error in Promise.all for initial products:", error);
+            rejectTransaction(error);
+        });
       });
+      console.log("Initial products populated into IndexedDB.");
     }
   } catch (error) {
     console.error("Failed to initialize products in IndexedDB:", error);
-    // Optionally re-throw or handle as appropriate for your app's startup
   }
 };
 
@@ -177,7 +190,7 @@ export const getBackupData = async (): Promise<BackupData> => {
 };
 
 export const restoreBackupData = async (data: BackupData): Promise<void> => {
-  const db = await openDB(); // Ensure DB is open
+  const db = await openDB(); 
 
   const clearStore = async (storeName: string) => {
     const transaction = db.transaction(storeName, 'readwrite');
@@ -186,7 +199,7 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => resolve(); // Ensure transaction completes
+      transaction.oncomplete = () => resolve(); 
       transaction.onerror = () => reject(transaction.error);
     });
   };
@@ -195,13 +208,12 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);
     for (const item of items) {
-      // For entries and sales, ensure date is a Date object if it's coming from JSON string
       let itemToAdd = item;
       if ((storeName === STORE_ENTRIES || storeName === STORE_SALES) && (item as any).date && typeof (item as any).date === 'string') {
         itemToAdd = { ...item, date: new Date((item as any).date) };
       }
       const request = store.add(itemToAdd);
-      await new Promise<void>((resolve, reject) => { // Await each add for clarity, though can be parallelized
+      await new Promise<void>((resolve, reject) => { 
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
       });
@@ -228,10 +240,6 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
   }
 };
 
-// Call initialization once. 
-// This is a side effect. It's generally better to call this from an application entry point 
-// (e.g., root layout's useEffect or a specific initialization module)
-// to ensure the environment is fully set up and control execution order.
 if (typeof window !== 'undefined' && window.indexedDB) {
     openDB().then(() => {
         initializeProductsDB().catch(error => {
