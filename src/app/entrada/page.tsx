@@ -56,7 +56,7 @@ const entryFormSchema = z.object({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
   unitPrice: z.coerce.number().positive({
-    message: "O valor unitário deve ser um número positivo.",
+    message: "O custo unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
 });
 
@@ -64,7 +64,7 @@ export default function EntradaPage() {
   const { toast } = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
+  const [calculatedTotalCost, setCalculatedTotalCost] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -109,7 +109,7 @@ export default function EntradaPage() {
   useEffect(() => {
     const quantity = watchedQuantity || 0;
     const unitPrice = watchedUnitPrice || 0;
-    setCalculatedTotalValue(parseFloat((quantity * unitPrice).toFixed(2)));
+    setCalculatedTotalCost(parseFloat((quantity * unitPrice).toFixed(2)));
   }, [watchedQuantity, watchedUnitPrice]);
 
   async function onSubmit(data: EntryFormValues) {
@@ -151,7 +151,7 @@ export default function EntradaPage() {
         quantity: 1,
         unitPrice: 0,
       });
-      setCalculatedTotalValue(0);
+      setCalculatedTotalCost(0);
 
     } catch (error) {
       console.error("Failed to register entry:", error);
@@ -208,11 +208,11 @@ export default function EntradaPage() {
           <div className="flex items-center gap-3">
             <LogIn size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
-              Registro de Entrada de Produtos
+              Registro de Entrada de Produtos (Custos)
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Preencha o formulário para registrar novas entradas de produtos no estoque.
+            Preencha o formulário para registrar novas entradas de produtos no estoque, incluindo seus custos.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -319,7 +319,7 @@ export default function EntradaPage() {
                   name="unitPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Valor Unitário (R$)</FormLabel>
+                      <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Custo Unitário (R$)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="0.00" {...field} step="0.01" min="0.01"/>
                       </FormControl>
@@ -330,9 +330,9 @@ export default function EntradaPage() {
               </div>
 
               <FormItem>
-                <FormLabel className="text-primary-foreground/90">Valor Total (R$)</FormLabel>
+                <FormLabel className="text-primary-foreground/90">Custo Total (R$)</FormLabel>
                 <FormControl>
-                    <Input type="text" value={calculatedTotalValue.toFixed(2)} readOnly disabled className="font-bold text-lg"/>
+                    <Input type="text" value={calculatedTotalCost.toFixed(2)} readOnly disabled className="font-bold text-lg"/>
                 </FormControl>
               </FormItem>
 
@@ -360,8 +360,8 @@ export default function EntradaPage() {
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead className="text-right">Qtd.</TableHead>
-                  <TableHead className="text-right">Vlr. Unit.</TableHead>
-                  <TableHead className="text-right">Vlr. Total</TableHead>
+                  <TableHead className="text-right">Custo Unit.</TableHead>
+                  <TableHead className="text-right">Custo Total</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
