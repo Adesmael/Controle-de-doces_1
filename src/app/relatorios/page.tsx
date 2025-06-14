@@ -77,6 +77,7 @@ export default function RelatoriosPage() {
     setIsLoading(true);
     const sales = getStoredSales();
     const products = getStoredProducts();
+    // Ensure entries are sorted by date for correct LIFO/FIFO-like costing (latest cost before sale)
     const entries = getStoredEntries().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const monthlySalesAgg: { [key: string]: number } = {};
@@ -118,7 +119,7 @@ export default function RelatoriosPage() {
 
     const processedStockLevels: StockLevelData[] = products
       .sort((a,b) => a.stock - b.stock) 
-      .slice(0, 10) // Show more products for stock levels if needed
+      .slice(0, 10) 
       .map(product => ({
         name: product.name,
         stock: product.stock,
@@ -404,15 +405,15 @@ export default function RelatoriosPage() {
                 </CardContent>
             </Card>
             
-            <Card className="mt-6 md:col-span-2"> {/* Adjusted from md:col-span-2, ensure it spans correctly if needed */}
+            <Card className="mt-6 md:col-span-2">
                 <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-headline flex items-center gap-2">
                     <TrendingDown size={20} className="text-orange-500" />Produtos com Estoque Baixo (Top 10)
                 </CardTitle>
-                <CardDescription>Produtos com quantidade em estoque menor que 10 unidades (ou zerado).</CardDescription>
+                <CardDescription>Produtos com quantidade em estoque menor que 10 unidades (ou zerado), ordenados do menor para o maior estoque.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                {renderChartOrMessage(stockLevels.filter(p=>p.stock < 10), // Filter for low stock here for the chart
+                {renderChartOrMessage(stockLevels.filter(p=>p.stock < 10), 
                     <ChartContainer config={stockChartConfig} className="h-full w-full">
                         <BarChart accessibilityLayer data={stockLevels.filter(p=>p.stock < 10).sort((a,b)=>a.stock-b.stock)} layout="vertical">
                             <CartesianGrid horizontal={false} />
@@ -435,3 +436,5 @@ export default function RelatoriosPage() {
   );
 }
 
+
+    
