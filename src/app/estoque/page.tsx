@@ -4,36 +4,49 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import type { Product } from "@/lib/types";
-import { LayoutGrid, PackageSearch, AlertTriangle } from "lucide-react";
+import { LayoutGrid, PackageSearch, AlertTriangle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { getStoredProducts } from "@/lib/storage";
+import { getProducts } from "@/lib/storage";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EstoquePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    try {
+      const storedProducts = await getProducts();
+      setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
+    } catch (error) {
+      console.error("Failed to fetch products for stock page:", error);
+      toast({ title: "Erro ao Carregar Estoque", description: "Não foi possível buscar os produtos.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setProducts(getStoredProducts());
-  }, []);
-
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'controleDocesApp_products') { 
-        setProducts(getStoredProducts());
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    fetchProducts();
+    // Since IndexedDB doesn't have a native cross-tab sync event like localStorage,
+    // we might need a more complex solution for real-time updates across tabs (e.g., BroadcastChannel or polling).
+    // For now, data is fetched on component mount. A manual refresh or navigation might be needed to see changes from other tabs.
+    // Consider adding a refresh button or periodic refetch if live cross-tab updates are critical.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   const getStockIndicatorColor = (stock: number) => {
     if (stock === 0) return "text-destructive";
-    if (stock < 10) return "text-orange-500"; 
-    return "text-green-600"; 
+    if (stock < 10) return "text-orange-500";
+    return "text-green-600";
   };
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando estoque...</p></div>;
+  }
 
   return (
     <div className="container mx-auto py-8">

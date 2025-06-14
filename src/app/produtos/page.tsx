@@ -19,11 +19,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle } from "lucide-react";
+import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/lib/types";
 import Image from "next/image";
-import { getStoredProducts, saveStoredProducts } from "@/lib/storage";
+import { getProducts, addProduct, updateProduct, deleteProduct } from "@/lib/storage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +33,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; 
+} from "@/components/ui/alert-dialog";
 
 const productFormSchema = z.object({
   name: z.string().min(2, {
@@ -71,9 +71,25 @@ export default function ProdutosPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    try {
+      const storedProducts = await getProducts();
+      setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      toast({ title: "Erro ao carregar produtos", description: "Não foi possível buscar os produtos do banco de dados.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setProducts(getStoredProducts());
+    fetchProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const form = useForm<ProductFormValues>({
@@ -102,37 +118,42 @@ export default function ProdutosPage() {
     setEditingProduct(null);
   };
 
-  function onSubmit(data: ProductFormValues) {
-    if (editingProduct) {
-      const updatedProduct: Product = {
-        ...editingProduct,
-        ...data,
-        imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
-        dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
-      };
-      const updatedProducts = products.map(p => p.id === editingProduct.id ? updatedProduct : p);
-      setProducts(updatedProducts);
-      saveStoredProducts(updatedProducts);
-      toast({
-        title: "Produto Atualizado!",
-        description: `${updatedProduct.name} foi atualizado com sucesso.`,
-      });
-    } else {
-      const newProduct: Product = {
-          id: String(Date.now()), 
+  async function onSubmit(data: ProductFormValues) {
+    setIsSubmitting(true);
+    try {
+      if (editingProduct) {
+        const updatedProductData: Product = {
+          ...editingProduct,
           ...data,
           imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
           dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
-      };
-      const updatedProducts = [newProduct, ...products];
-      setProducts(updatedProducts);
-      saveStoredProducts(updatedProducts);
-      toast({
-        title: "Produto Adicionado!",
-        description: `${data.name} foi adicionado ao catálogo.`,
-      });
+        };
+        await updateProduct(updatedProductData);
+        toast({
+          title: "Produto Atualizado!",
+          description: `${updatedProductData.name} foi atualizado com sucesso.`,
+        });
+      } else {
+        const newProductData: Product = {
+            id: String(Date.now()),
+            ...data,
+            imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
+            dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
+        };
+        await addProduct(newProductData);
+        toast({
+          title: "Produto Adicionado!",
+          description: `${data.name} foi adicionado ao catálogo.`,
+        });
+      }
+      await fetchProducts(); // Refetch products to update the list
+      resetFormAndState();
+    } catch (error) {
+      console.error("Failed to save product:", error);
+      toast({ title: "Erro ao Salvar", description: "Não foi possível salvar o produto.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
-    resetFormAndState();
   }
 
   const handleEditProduct = (product: Product) => {
@@ -143,10 +164,10 @@ export default function ProdutosPage() {
       description: product.description,
       price: product.price,
       stock: product.stock,
-      imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl, 
+      imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl,
       dataAiHint: product.dataAiHint,
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteClick = (product: Product) => {
@@ -154,24 +175,31 @@ export default function ProdutosPage() {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDeleteProduct = () => {
+  const confirmDeleteProduct = async () => {
     if (productToDelete) {
-      const updatedProducts = products.filter(p => p.id !== productToDelete.id);
-      setProducts(updatedProducts);
-      saveStoredProducts(updatedProducts);
-      toast({
-        title: "Produto Excluído!",
-        description: `${productToDelete.name} foi removido do catálogo.`,
-        variant: "destructive"
-      });
-    }
-    setShowDeleteConfirm(false);
-    setProductToDelete(null);
-    if (editingProduct && editingProduct.id === productToDelete?.id) {
-        resetFormAndState(); 
+      setIsSubmitting(true);
+      try {
+        await deleteProduct(productToDelete.id);
+        toast({
+          title: "Produto Excluído!",
+          description: `${productToDelete.name} foi removido do catálogo.`,
+          variant: "destructive"
+        });
+        await fetchProducts(); // Refetch products
+        if (editingProduct && editingProduct.id === productToDelete?.id) {
+            resetFormAndState();
+        }
+      } catch (error) {
+        console.error("Failed to delete product:", error);
+        toast({ title: "Erro ao Excluir", description: "Não foi possível excluir o produto.", variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+        setShowDeleteConfirm(false);
+        setProductToDelete(null);
+      }
     }
   };
-  
+
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -286,11 +314,11 @@ export default function ProdutosPage() {
                   )}
               />
               <div className="flex flex-wrap gap-3">
-                <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 btn-animated flex-grow sm:flex-grow-0">
-                  {editingProduct ? <><Save size={18} className="mr-2" /> Salvar Alterações</> : <><PlusCircle size={18} className="mr-2" /> Adicionar Produto</>}
+                <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 btn-animated flex-grow sm:flex-grow-0" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : (editingProduct ? <><Save size={18} className="mr-2" /> Salvar Alterações</> : <><PlusCircle size={18} className="mr-2" /> Adicionar Produto</>)}
                 </Button>
                 {editingProduct && (
-                  <Button type="button" variant="outline" onClick={resetFormAndState} className="btn-animated flex-grow sm:flex-grow-0">
+                  <Button type="button" variant="outline" onClick={resetFormAndState} className="btn-animated flex-grow sm:flex-grow-0" disabled={isSubmitting}>
                     <XCircle size={18} className="mr-2" /> Cancelar Edição
                   </Button>
                 )}
@@ -300,7 +328,9 @@ export default function ProdutosPage() {
         </CardContent>
       </Card>
 
-      {products.length > 0 && (
+      {isLoading ? (
+        <div className="text-center py-10"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando produtos...</p></div>
+      ) : products.length > 0 && (
         <Card className="max-w-4xl mx-auto shadow-xl">
             <CardHeader>
                 <CardTitle className="text-xl font-headline text-primary-foreground">Produtos Cadastrados ({products.length})</CardTitle>
@@ -331,10 +361,10 @@ export default function ProdutosPage() {
                             </div>
                         </div>
                         <div className="mt-2 sm:mt-0 flex-shrink-0 space-x-2 flex sm:flex-col sm:space-x-0 sm:space-y-2">
-                           <Button variant="outline" size="sm" onClick={() => handleEditProduct(product)} className="btn-animated w-full sm:w-auto">
+                           <Button variant="outline" size="sm" onClick={() => handleEditProduct(product)} className="btn-animated w-full sm:w-auto" disabled={isSubmitting}>
                              <Edit3 size={14} className="mr-1 sm:mr-2"/> Editar
                            </Button>
-                           <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(product)} className="btn-animated w-full sm:w-auto">
+                           <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(product)} className="btn-animated w-full sm:w-auto" disabled={isSubmitting}>
                              <Trash2 size={14} className="mr-1 sm:mr-2"/> Excluir
                            </Button>
                         </div>
@@ -354,8 +384,8 @@ export default function ProdutosPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive hover:bg-destructive/90">
-              Excluir Produto
+            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="animate-spin" /> : "Excluir Produto"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

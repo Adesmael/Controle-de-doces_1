@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse } from "lucide-react";
+import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Entry, EntryFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,7 +27,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getStoredProducts, saveStoredProducts, getStoredEntries, saveStoredEntries } from "@/lib/storage";
+import { getProducts, getEntries, addEntry, getProductById, updateProduct } from "@/lib/storage";
 
 const entryFormSchema = z.object({
   date: z.date({
@@ -54,10 +54,29 @@ export default function EntradaPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [storedProducts, storedEntries] = await Promise.all([
+        getProducts(),
+        getEntries()
+      ]);
+      setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
+      setEntries(storedEntries); // Already sorted by date desc in getEntries
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou entradas.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setProducts(getStoredProducts());
-    setEntries(getStoredEntries());
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const form = useForm<EntryFormValues>({
@@ -80,45 +99,57 @@ export default function EntradaPage() {
     setCalculatedTotalValue(parseFloat((quantity * unitPrice).toFixed(2)));
   }, [watchedQuantity, watchedUnitPrice]);
 
-  function onSubmit(data: EntryFormValues) {
-    const currentProducts = getStoredProducts();
-    const selectedProduct = currentProducts.find(p => p.id === data.productId);
+  async function onSubmit(data: EntryFormValues) {
+    setIsSubmitting(true);
+    try {
+      const selectedProduct = await getProductById(data.productId);
 
-    if (!selectedProduct) {
-      toast({ title: "Erro", description: "Produto selecionado não encontrado.", variant: "destructive"});
-      return;
+      if (!selectedProduct) {
+        toast({ title: "Erro", description: "Produto selecionado não encontrado.", variant: "destructive"});
+        setIsSubmitting(false);
+        return;
+      }
+
+      const newEntry: Entry = {
+        id: String(Date.now()),
+        ...data,
+        totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)),
+        productName: selectedProduct.name,
+      };
+
+      await addEntry(newEntry);
+
+      const updatedProductStock = {
+        ...selectedProduct,
+        stock: selectedProduct.stock + data.quantity
+      };
+      await updateProduct(updatedProductStock);
+
+      toast({
+        title: "Entrada Registrada!",
+        description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${data.supplier} registrada. Estoque atualizado.`,
+      });
+      
+      await fetchData(); // Refetch entries and products
+      form.reset({
+        date: new Date(),
+        supplier: "",
+        productId: "",
+        quantity: 1,
+        unitPrice: 0,
+      });
+      setCalculatedTotalValue(0);
+
+    } catch (error) {
+      console.error("Failed to register entry:", error);
+      toast({ title: "Erro ao Registrar Entrada", description: "Não foi possível salvar a entrada.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
+  }
 
-    const newEntry: Entry = {
-      id: String(Date.now()), 
-      ...data,
-      totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)),
-      productName: selectedProduct.name,
-    };
-    
-    const updatedEntries = [newEntry, ...entries];
-    setEntries(updatedEntries);
-    saveStoredEntries(updatedEntries);
-
-    const updatedProducts = currentProducts.map(p => 
-      p.id === data.productId ? { ...p, stock: p.stock + data.quantity } : p
-    );
-    setProducts(updatedProducts); 
-    saveStoredProducts(updatedProducts);
-
-
-    toast({
-      title: "Entrada Registrada!",
-      description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${data.supplier} registrada. Estoque atualizado.`,
-    });
-    form.reset({
-      date: new Date(),
-      supplier: "",
-      productId: "",
-      quantity: 1,
-      unitPrice: 0,
-    });
-    setCalculatedTotalValue(0);
+  if (isLoading) {
+    return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando dados...</p></div>;
   }
 
   return (
@@ -201,7 +232,7 @@ export default function EntradaPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><Package size={16} className="mr-2"/>Produto</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um produto" />
@@ -248,7 +279,7 @@ export default function EntradaPage() {
                   )}
                 />
               </div>
-              
+
               <FormItem>
                 <FormLabel className="text-primary-foreground/90">Valor Total (R$)</FormLabel>
                 <FormControl>
@@ -256,8 +287,8 @@ export default function EntradaPage() {
                 </FormControl>
               </FormItem>
 
-              <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated">
-                <PlusCircle size={18} className="mr-2" /> Registrar Entrada
+              <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Entrada</>}
               </Button>
             </form>
           </Form>

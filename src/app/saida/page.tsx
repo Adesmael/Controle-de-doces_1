@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent } from "lucide-react";
+import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Sale, SaleFormValues } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,7 +27,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getStoredProducts, saveStoredProducts, getStoredSales, saveStoredSales } from "@/lib/storage";
+import { getProducts, getSales, addSale, getProductById, updateProduct } from "@/lib/storage";
 
 const saleFormSchema = z.object({
   date: z.date({
@@ -44,7 +44,7 @@ const saleFormSchema = z.object({
   quantity: z.coerce.number().int().positive({
     message: "A quantidade deve ser um número inteiro positivo.",
   }),
-  unitPrice: z.coerce.number().positive({ 
+  unitPrice: z.coerce.number().positive({
     message: "O valor unitário deve ser um número positivo.",
   }).transform(val => parseFloat(val.toFixed(2))),
   discount: z.coerce.number().nonnegative({
@@ -58,10 +58,29 @@ export default function SaidaPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [storedProducts, storedSales] = await Promise.all([
+        getProducts(),
+        getSales()
+      ]);
+      setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
+      setSales(storedSales); // Already sorted by date desc in getSales
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou saídas.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setProducts(getStoredProducts());
-    setSales(getStoredSales());
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const form = useForm<SaleFormValues>({
@@ -71,7 +90,7 @@ export default function SaidaPage() {
       customer: "",
       productId: "",
       quantity: 1,
-      unitPrice: 0, 
+      unitPrice: 0,
       discount: 0,
     },
   });
@@ -82,18 +101,27 @@ export default function SaidaPage() {
   const watchedDiscount = form.watch("discount");
 
   useEffect(() => {
-    if (watchedProductId) {
-      const product = products.find(p => p.id === watchedProductId);
-      if (product) {
-        form.setValue("unitPrice", product.price); 
+    const updatePriceFromProduct = async () => {
+      if (watchedProductId) {
+        const product = products.find(p => p.id === watchedProductId); // Use cached products
+        if (product) {
+          form.setValue("unitPrice", product.price);
+        } else {
+          // If not in cache (e.g., direct load or race condition), fetch it
+          const fetchedProduct = await getProductById(watchedProductId);
+          if (fetchedProduct) {
+            form.setValue("unitPrice", fetchedProduct.price);
+          } else {
+            form.setValue("unitPrice", 0);
+          }
+        }
       } else {
         form.setValue("unitPrice", 0);
       }
-    } else {
-      form.setValue("unitPrice", 0);
-    }
+    };
+    updatePriceFromProduct();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedProductId, products]); 
+  }, [watchedProductId, products]); // products dependency ensures it re-runs if products list changes
 
   useEffect(() => {
     const quantity = watchedQuantity || 0;
@@ -102,53 +130,67 @@ export default function SaidaPage() {
     const subtotal = quantity * unitPrice;
     setCalculatedTotalValue(parseFloat(Math.max(0, subtotal - discount).toFixed(2)));
   }, [watchedQuantity, watchedUnitPrice, watchedDiscount]);
-  
 
-  function onSubmit(data: SaleFormValues) {
-    const currentProducts = getStoredProducts();
-    const selectedProduct = currentProducts.find(p => p.id === data.productId);
 
-    if (!selectedProduct) {
-        toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
-        return;
+  async function onSubmit(data: SaleFormValues) {
+    setIsSubmitting(true);
+    try {
+      const selectedProduct = await getProductById(data.productId);
+
+      if (!selectedProduct) {
+          toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
+          setIsSubmitting(false);
+          return;
+      }
+      if (data.quantity > selectedProduct.stock) {
+          toast({ title: "Estoque Insuficiente", description: `Apenas ${selectedProduct.stock} unidades de ${selectedProduct.name} disponíveis.`, variant: "destructive"});
+          setIsSubmitting(false);
+          return;
+      }
+
+      const totalValue = (data.quantity * data.unitPrice) - data.discount;
+
+      const newSale: Sale = {
+        id: String(Date.now()),
+        ...data,
+        totalValue: parseFloat(Math.max(0, totalValue).toFixed(2)),
+        productName: selectedProduct.name,
+      };
+
+      await addSale(newSale);
+
+      const updatedProductStock = {
+        ...selectedProduct,
+        stock: selectedProduct.stock - data.quantity
+      };
+      await updateProduct(updatedProductStock);
+
+      toast({
+        title: "Saída Registrada!",
+        description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${data.customer} registrada. Estoque atualizado.`,
+      });
+
+      await fetchData(); // Refetch sales and products
+      form.reset({
+        date: new Date(),
+        customer: "",
+        productId: "",
+        quantity: 1,
+        unitPrice: 0,
+        discount: 0,
+      });
+      setCalculatedTotalValue(0);
+
+    } catch (error) {
+      console.error("Failed to register sale:", error);
+      toast({ title: "Erro ao Registrar Saída", description: "Não foi possível salvar a saída.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
-    if (data.quantity > selectedProduct.stock) {
-        toast({ title: "Estoque Insuficiente", description: `Apenas ${selectedProduct.stock} unidades de ${selectedProduct.name} disponíveis.`, variant: "destructive"});
-        return;
-    }
-    
-    const totalValue = (data.quantity * data.unitPrice) - data.discount;
+  }
 
-    const newSale: Sale = {
-      id: String(Date.now()), 
-      ...data,
-      totalValue: parseFloat(Math.max(0, totalValue).toFixed(2)),
-      productName: selectedProduct.name,
-    };
-    const updatedSales = [newSale, ...sales];
-    setSales(updatedSales);
-    saveStoredSales(updatedSales);
-
-    const updatedProducts = currentProducts.map(p => 
-      p.id === data.productId ? { ...p, stock: p.stock - data.quantity } : p
-    );
-    setProducts(updatedProducts); 
-    saveStoredProducts(updatedProducts);
-
-    toast({
-      title: "Saída Registrada!",
-      description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${data.customer} registrada. Estoque atualizado.`,
-    });
-
-    form.reset({
-      date: new Date(),
-      customer: "",
-      productId: "",
-      quantity: 1,
-      unitPrice: 0,
-      discount: 0,
-    });
-    setCalculatedTotalValue(0);
+  if (isLoading) {
+    return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando dados...</p></div>;
   }
 
   return (
@@ -231,7 +273,7 @@ export default function SaidaPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><Package size={16} className="mr-2"/>Produto</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue="">
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um produto" />
@@ -291,7 +333,7 @@ export default function SaidaPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormItem>
                 <FormLabel className="text-primary-foreground/90">Valor Total (R$)</FormLabel>
                 <FormControl>
@@ -299,8 +341,8 @@ export default function SaidaPage() {
                 </FormControl>
               </FormItem>
 
-              <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated">
-                <PlusCircle size={18} className="mr-2" /> Registrar Saída
+              <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
+                 {isSubmitting ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Saída</>}
               </Button>
             </form>
           </Form>

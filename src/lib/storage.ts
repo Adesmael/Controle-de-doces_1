@@ -1,82 +1,173 @@
 
 import type { Product, Entry, Sale } from './types';
-import { initialProductsData } from './products'; 
+import { initialProductsData } from './products';
 
-// Adjusted storage keys for the new app name
-const APP_PREFIX = 'controleDocesApp_';
-const PRODUCTS_KEY = `${APP_PREFIX}products`;
-const ENTRIES_KEY = `${APP_PREFIX}entries`;
-const SALES_KEY = `${APP_PREFIX}sales`;
+const DB_NAME = 'ControleDocesDB';
+const DB_VERSION = 1;
+const STORE_PRODUCTS = 'products';
+const STORE_ENTRIES = 'entries';
+const STORE_SALES = 'sales';
+
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+const openDB = (): Promise<IDBDatabase> => {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return Promise.reject(new Error("IndexedDB is not supported or not available in this environment."));
+  }
+  if (dbPromise) {
+    return dbPromise;
+  }
+  dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_PRODUCTS)) {
+        db.createObjectStore(STORE_PRODUCTS, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_ENTRIES)) {
+        const entryStore = db.createObjectStore(STORE_ENTRIES, { keyPath: 'id' });
+        entryStore.createIndex('date', 'date', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_SALES)) {
+        const saleStore = db.createObjectStore(STORE_SALES, { keyPath: 'id' });
+        saleStore.createIndex('date', 'date', { unique: false });
+      }
+    };
+
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      // Close the DB connection if an older version is open elsewhere in the same browser context
+      db.onversionchange = () => {
+        db.close();
+        alert("Uma nova versão da página está pronta. Por favor, recarregue!");
+        window.location.reload();
+      };
+      resolve(db);
+    };
+
+    request.onerror = (event) => {
+      console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
+      dbPromise = null; // Reset promise if an error occurs
+      reject(new Error("Error opening IndexedDB: " + (event.target as IDBOpenDBRequest).error?.name));
+    };
+  });
+  return dbPromise;
+};
+
+const getStore = (storeName: string, mode: IDBTransactionMode): Promise<IDBObjectStore> => {
+  return openDB().then(db => {
+    const transaction = db.transaction(storeName, mode);
+    return transaction.objectStore(storeName);
+  });
+};
+
+// Generic CRUD operations
+const getAll = async <T>(storeName: string): Promise<T[]> => {
+  const store = await getStore(storeName, 'readonly');
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result as T[]);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getById = async <T>(storeName: string, id: string): Promise<T | undefined> => {
+  const store = await getStore(storeName, 'readonly');
+  return new Promise((resolve, reject) => {
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result as T | undefined);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const add = async <T>(storeName: string, item: T): Promise<IDBValidKey> => {
+  const store = await getStore(storeName, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const request = store.add(item);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const put = async <T>(storeName: string, item: T): Promise<IDBValidKey> => {
+  const store = await getStore(storeName, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const request = store.put(item);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const deleteItem = async (storeName: string, id: string): Promise<void> => {
+  const store = await getStore(storeName, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const clear = async (storeName: string): Promise<void> => {
+  const store = await getStore(storeName, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const request = store.clear();
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+
+// Initialize Products
+export const initializeProductsDB = async (): Promise<void> => {
+  try {
+    const products = await getProducts();
+    if (products.length === 0) {
+      const store = await getStore(STORE_PRODUCTS, 'readwrite');
+      const transaction = store.transaction;
+      await Promise.all(initialProductsData.map(product => {
+        return new Promise<void>((resolve, reject) => {
+          const request = store.add(product);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }));
+      return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to initialize products in IndexedDB", error);
+  }
+};
+// Call initialization once. This is a side effect, might be better handled in app root.
+if (typeof window !== 'undefined') {
+  initializeProductsDB();
+}
 
 
 // Product Management
-export const getStoredProducts = (): Product[] => {
-  if (typeof window === 'undefined') return [...initialProductsData]; 
-  try {
-    const stored = localStorage.getItem(PRODUCTS_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(initialProductsData));
-    return [...initialProductsData];
-  } catch (error) {
-    console.error("Error reading products from localStorage", error);
-    return [...initialProductsData];
-  }
-};
-
-export const saveStoredProducts = (products: Product[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  } catch (error) {
-    console.error("Error saving products to localStorage", error);
-  }
-};
+export const getProducts = (): Promise<Product[]> => getAll<Product>(STORE_PRODUCTS);
+export const getProductById = (id: string): Promise<Product | undefined> => getById<Product>(STORE_PRODUCTS, id);
+export const addProduct = (product: Product): Promise<IDBValidKey> => add<Product>(STORE_PRODUCTS, product);
+export const updateProduct = (product: Product): Promise<IDBValidKey> => put<Product>(STORE_PRODUCTS, product);
+export const deleteProduct = (id: string): Promise<void> => deleteItem(STORE_PRODUCTS, id);
 
 // Entry Management
-export const getStoredEntries = (): Entry[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(ENTRIES_KEY);
-    const entries = stored ? JSON.parse(stored) : [];
-    return entries.map((entry: any) => ({ ...entry, date: new Date(entry.date) }));
-  } catch (error) {
-    console.error("Error reading entries from localStorage", error);
-    return [];
-  }
+export const getEntries = async (): Promise<Entry[]> => {
+    const entries = await getAll<Entry>(STORE_ENTRIES);
+    return entries.map(entry => ({ ...entry, date: new Date(entry.date) })).sort((a,b) => b.date.getTime() - a.date.getTime());
 };
-
-export const saveStoredEntries = (entries: Entry[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
-  } catch (error) {
-    console.error("Error saving entries to localStorage", error);
-  }
-};
+export const addEntry = (entry: Entry): Promise<IDBValidKey> => add<Entry>(STORE_ENTRIES, entry);
 
 // Sale Management
-export const getStoredSales = (): Sale[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(SALES_KEY);
-    const sales = stored ? JSON.parse(stored) : [];
-    return sales.map((sale: any) => ({ ...sale, date: new Date(sale.date) }));
-  } catch (error) {
-    console.error("Error reading sales from localStorage", error);
-    return [];
-  }
+export const getSales = async (): Promise<Sale[]> => {
+    const sales = await getAll<Sale>(STORE_SALES);
+    return sales.map(sale => ({ ...sale, date: new Date(sale.date) })).sort((a,b) => b.date.getTime() - a.date.getTime());
 };
+export const addSale = (sale: Sale): Promise<IDBValidKey> => add<Sale>(STORE_SALES, sale);
 
-export const saveStoredSales = (sales: Sale[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(SALES_KEY, JSON.stringify(sales));
-  } catch (error) {
-    console.error("Error saving sales to localStorage", error);
-  }
-};
 
 // Backup/Restore
 export interface BackupData {
@@ -85,74 +176,38 @@ export interface BackupData {
   sales: Sale[];
 }
 
-export const getBackupData = (): BackupData => {
-  return {
-    products: getStoredProducts(),
-    entries: getStoredEntries(),
-    sales: getStoredSales(),
-  };
+export const getBackupData = async (): Promise<BackupData> => {
+  const [products, entries, sales] = await Promise.all([
+    getProducts(),
+    getEntries(),
+    getSales(),
+  ]);
+  return { products, entries, sales };
 };
 
-export const restoreBackupData = (data: BackupData) => {
-  if (data.products) saveStoredProducts(data.products);
-  if (data.entries) saveStoredEntries(data.entries.map((entry: any) => ({ ...entry, date: new Date(entry.date) })));
-  if (data.sales) saveStoredSales(data.sales.map((sale: any) => ({ ...sale, date: new Date(sale.date) })));
-};
-
-
-// --- IndexedDB Setup ---
-const DB_NAME = 'ControleDocesDB';
-const DB_VERSION = 1; // Increment this when schema changes
-
-const openDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.indexedDB) {
-        reject("IndexedDB is not supported or not available in this environment.");
-        return;
+export const restoreBackupData = async (data: BackupData): Promise<void> => {
+  try {
+    const productStore = await getStore(STORE_PRODUCTS, 'readwrite');
+    await new Promise<void>((resolve, reject) => { const req = productStore.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
+    for (const product of data.products) {
+      await new Promise<void>((resolve, reject) => { const req = productStore.add(product); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
     }
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    const entryStore = await getStore(STORE_ENTRIES, 'readwrite');
+    await new Promise<void>((resolve, reject) => { const req = entryStore.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
+    for (const entry of data.entries) {
+        // Ensure dates are Date objects
+      await new Promise<void>((resolve, reject) => { const req = entryStore.add({...entry, date: new Date(entry.date)}); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
+    }
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('products')) {
-        db.createObjectStore('products', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('entries')) {
-        db.createObjectStore('entries', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('sales')) {
-        db.createObjectStore('sales', { keyPath: 'id' });
-      }
-    };
-
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
-
-    request.onerror = (event) => {
-      console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
-      reject("Error opening IndexedDB: " + (event.target as IDBOpenDBRequest).error?.name);
-    };
-  });
+    const saleStore = await getStore(STORE_SALES, 'readwrite');
+    await new Promise<void>((resolve, reject) => { const req = saleStore.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
+    for (const sale of data.sales) {
+         // Ensure dates are Date objects
+      await new Promise<void>((resolve, reject) => { const req = saleStore.add({...sale, date: new Date(sale.date)}); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error);});
+    }
+  } catch (error) {
+    console.error("Error restoring data to IndexedDB", error);
+    throw error; // Re-throw to be caught by the calling UI
+  }
 };
-
-// For now, to demonstrate an initial step, we'll log that the DB can be opened.
-// This is a side effect and in a larger app might be handled in an initialization module.
-if (typeof window !== 'undefined' && window.indexedDB) {
-  openDB().then(db => {
-    console.log('ControleDocesDB setup initiated. Database opened successfully. Version:', db.version);
-    // It's good practice to close the DB if it's not being actively used by the current operation.
-    // For this initial setup, we'll just open and log.
-    // In a real migration, you'd get this db instance and pass it to your CRUD functions.
-    db.close(); 
-  }).catch(error => {
-    console.warn('Failed to open ControleDocesDB for initial setup:', error);
-  });
-}
-
-// TODO: Future steps will involve:
-// 1. Migrating getStoredProducts, saveStoredProducts to use IndexedDB (async).
-// 2. Migrating getStoredEntries, saveStoredEntries to use IndexedDB (async).
-// 3. Migrating getStoredSales, saveStoredSales to use IndexedDB (async).
-// 4. Updating components to handle asynchronous data fetching from IndexedDB.
-// 5. Updating backup/restore to use IndexedDB.
