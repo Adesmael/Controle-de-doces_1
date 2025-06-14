@@ -2,9 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings, Home } from 'lucide-react';
-import { useCart } from '@/contexts/CartContext';
-import { Badge } from '@/components/ui/badge';
+import { Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -18,7 +16,6 @@ import { useState } from 'react';
 
 
 const navLinks = [
-  { href: "/", label: "Início", icon: Home },
   { href: "/entrada", label: "Entrada", icon: ArrowRightLeft },
   { href: "/saida", label: "Saída", icon: ArrowRightLeft },
   { href: "/produtos", label: "Produtos", icon: Package },
@@ -28,7 +25,6 @@ const navLinks = [
 ];
 
 const Header = () => {
-  const { cartCount } = useCart();
   const isMobile = useIsMobile();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -44,15 +40,6 @@ const Header = () => {
           </Link>
         </Button>
       ))}
-      <Link href="/cart" className="relative flex items-center gap-2 p-2 rounded-md hover:bg-primary/80 transition-colors btn-animated">
-        <ShoppingCart size={24} />
-        <span className="hidden sm:inline">Carrinho</span>
-        {cartCount > 0 && (
-          <Badge variant="destructive" className="absolute -top-2 -right-2 px-2 py-0.5 text-xs">
-            {cartCount}
-          </Badge>
-        )}
-      </Link>
     </nav>
   );
 
@@ -68,7 +55,7 @@ const Header = () => {
         <SheetHeader className="p-4 border-b">
           <SheetTitle className="flex items-center gap-2 text-xl font-bold text-primary">
             <Banana size={28} />
-            Banana Bliss
+            Controle de Doces
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col p-4 space-y-2">
@@ -80,15 +67,6 @@ const Header = () => {
               </Link>
             </Button>
           ))}
-           <Link href="/cart" onClick={closeMobileNav} className="relative flex items-center gap-3 p-2 rounded-md hover:bg-accent/10 transition-colors btn-animated">
-            <ShoppingCart size={20} />
-            <span>Carrinho</span>
-            {cartCount > 0 && (
-              <Badge variant="destructive" className="absolute left-8 top-0 px-1.5 py-0.5 text-xs">
-                {cartCount}
-              </Badge>
-            )}
-          </Link>
         </nav>
       </SheetContent>
     </Sheet>
@@ -98,9 +76,9 @@ const Header = () => {
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-2 text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
+        <Link href="/produtos" className="flex items-center gap-2 text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
           <Banana size={32} />
-          Banana Bliss Ticketing
+          Controle de Doces
         </Link>
         {isMobile ? <MobileNav /> : <DesktopNav />}
       </div>
