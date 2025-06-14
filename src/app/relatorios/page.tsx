@@ -135,8 +135,7 @@ export default function RelatoriosPage() {
     loadReportData();
 
     const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === 'bananaBlissApp_sales' || event.key === 'bananaBlissApp_products' || event.key === 'bananaBlissApp_entries' ||
-            event.key === 'controleDocesApp_sales' || event.key === 'controleDocesApp_products' || event.key === 'controleDocesApp_entries' ) { //Adjusted for name change
+        if (event.key === 'controleDocesApp_sales' || event.key === 'controleDocesApp_products' || event.key === 'controleDocesApp_entries' ) { 
             loadReportData();
         }
     };

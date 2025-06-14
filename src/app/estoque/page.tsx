@@ -18,7 +18,7 @@ export default function EstoquePage() {
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'bananaBlissApp_products' || event.key === 'controleDocesApp_products') { // Adjusted for name change
+      if (event.key === 'controleDocesApp_products') { 
         setProducts(getStoredProducts());
       }
     };

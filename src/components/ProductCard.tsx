@@ -23,7 +23,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product: initialProduct }) =>
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'bananaBlissApp_products' || event.key === 'controleDocesApp_products') { // Adjusted for name change
+      if (event.key === 'controleDocesApp_products') { 
         const allProducts = getStoredProducts();
         const updatedProduct = allProducts.find(p => p.id === initialProduct.id);
         if (updatedProduct) {
