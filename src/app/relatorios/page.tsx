@@ -80,7 +80,7 @@ const dailySalesChartConfig = {
   },
 } satisfies ChartConfig
 
-const ALL_FILTER_VALUE = "_ALL_"; // Constant for "All" filter options
+const ALL_FILTER_VALUE = "_ALL_"; 
 
 export default function RelatoriosPage() {
   const [rawSales, setRawSales] = useState<Sale[]>([]);
@@ -95,7 +95,6 @@ export default function RelatoriosPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
-  const [hasIncompleteCostingData, setHasIncompleteCostingData] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -150,7 +149,7 @@ export default function RelatoriosPage() {
         stockLevels: [],
         salesProfitAnalysisData: [],
         summaryMetrics: { totalRevenue: 0, totalCostOfGoodsSold: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: 0, totalUnitsSold: 0, numberOfSalesProcessed: 0, numberOfSalesWithCost: 0 },
-        hasIncompleteCosting: false,
+        hasIncompleteCostingData: false,
       };
     }
 
@@ -160,10 +159,12 @@ export default function RelatoriosPage() {
     let costCouldNotBeCalculatedForAnySale = false;
     let salesWithCostCount = 0;
     
-    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): CÁLCULO DE CUSTO DETALHADO ---");
-    // DETAILED COST DEBUG: console.log("Iniciando cálculo de custo. Vendas a processar (após filtros):", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Produtos no DB:", productsFromDB.length);
-    // DETAILED COST DEBUG: console.log("Entradas no DB (ordenadas):", sortedEntries.length);
+    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): INÍCIO DO PROCESSAMENTO DE DADOS ---");
+    // DETAILED COST DEBUG: console.log("Número de vendas (Saídas) após filtros:", allSalesToProcess.length);
+    // DETAILED COST DEBUG: console.log("Número de produtos no DB:", productsFromDB.length);
+    // DETAILED COST DEBUG: console.log("Número de entradas (Custos) no DB (ordenadas por data ASC):", sortedEntries.length);
+    // DETAILED COST DEBUG: console.log("Filtro de cliente selecionado:", selectedClient);
+    // DETAILED COST DEBUG: console.log("Filtro de produto selecionado:", selectedProductFilter);
 
 
     const monthlySalesAgg: { [key: string]: number } = {};
@@ -201,7 +202,7 @@ export default function RelatoriosPage() {
       .sort((a, b) => b.sales - a.sales).slice(0, 5);
 
     const processedStockLevels: StockLevelData[] = productsFromDB
-      .filter(p => p.stock < 10)
+      .filter(p => p.stock < 10) // Shows items with less than 10 in stock, including 0
       .sort((a,b) => a.stock - b.stock).slice(0, 10)
       .map(product => ({ name: product.name, stock: product.stock }));
 
@@ -217,70 +218,79 @@ export default function RelatoriosPage() {
     });
     
     let overallTotalCostOfGoodsSold = 0;
+    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): CÁLCULO DE CUSTO DETALHADO PARA CADA VENDA ---");
 
     allSalesToProcess.forEach(sale => {
-      // DETAILED COST DEBUG: console.groupCollapsed(`--- VENDA ID: ${sale.id} para PRODUTO ID: ${sale.productId} (${sale.productName || 'N/A'}) ---`);
-      // DETAILED COST DEBUG: console.log(`Data da Venda: ${sale.date.toISOString()}, Quantidade: ${sale.quantity}, Valor da Venda: ${sale.totalValue}`);
+      // DETAILED COST DEBUG: console.groupCollapsed(`--- Processando Venda ID: ${sale.id} ---`);
+      // DETAILED COST DEBUG: console.log(`Detalhes da Venda: Produto ID '${sale.productId}' (${sale.productName || 'Nome N/A'}), Data: ${sale.date.toISOString()}, Quantidade: ${sale.quantity}, Valor da Venda: ${sale.totalValue.toFixed(2)}`);
 
       const analysis = productAnalysisMap.get(sale.productId);
       if (!analysis) {
-          // DETAILED COST DEBUG: console.warn(`Produto ID ${sale.productId} da venda não encontrado no productAnalysisMap. Pulando custo para este item da venda.`);
-          // DETAILED COST DEBUG: console.groupEnd();
-          return;
+          // DETAILED COST DEBUG: console.warn(`Produto ID ${sale.productId} da venda não encontrado no 'productAnalysisMap'. Pulando cálculo de custo para este item da venda.`);
+          // DETAILED COST DEBUG: console.groupEnd(); // End group for this sale
+          return; // Skip to next sale if product not in analysis map
       }
       analysis.totalRevenue += sale.totalValue;
       analysis.unitsSold += sale.quantity;
       analysis.totalSalesRecords +=1;
 
       const currentSaleDateTime = sale.date.getTime();
-      // DETAILED COST DEBUG: console.log("Timestamp da Venda (ms):", currentSaleDateTime);
+      // DETAILED COST DEBUG: console.log("Timestamp da Venda (ms):", currentSaleDateTime, `(${sale.date.toLocaleDateString('pt-BR')})`);
       
+      // Filter entries for this specific product
       const entriesForThisProduct = sortedEntries.filter(entry => entry.productId === sale.productId);
-      // DETAILED COST DEBUG: console.log(`Encontradas ${entriesForThisProduct.length} entradas TOTAIS para o produto ID ${sale.productId}:`, entriesForThisProduct.map(e => ({id: e.id, data: e.date.toISOString(), custoUnit: e.unitPrice, qtd: e.quantity })));
+      // DETAILED COST DEBUG: console.log(`Encontradas ${entriesForThisProduct.length} entradas TOTAIS para o produto ID '${sale.productId}':`, entriesForThisProduct.map(e => ({id: e.id, data: e.date.toISOString(), custoUnit: e.unitPrice, qtd: e.quantity })));
 
 
+      // Filter relevant entries: must be on or before the sale date AND have a positive unit cost
       const relevantEntries = entriesForThisProduct.filter(entry => {
         const entryDateOk = entry.date.getTime() <= currentSaleDateTime;
         const entryCostOk = entry.unitPrice > 0;
-        // DETAILED COST DEBUG: console.log(`  Verificando Entrada ID: ${entry.id} (Data: ${entry.date.toISOString()}, Custo: ${entry.unitPrice}) -> Data OK? ${entryDateOk}, Custo OK? ${entryCostOk}`);
+        // DETAILED COST DEBUG: console.log(`  Verificando Entrada ID '${entry.id}' (Data: ${entry.date.toISOString()} (${entry.date.toLocaleDateString('pt-BR')}), Custo Unit.: ${entry.unitPrice.toFixed(2)}) -> Data OK? ${entryDateOk}, Custo OK? ${entryCostOk}`);
         return entryDateOk && entryCostOk;
       });
       
-      // DETAILED COST DEBUG: console.log(`Encontradas ${relevantEntries.length} entradas RELEVANTES (data <= data da venda E custoUnit > 0):`, relevantEntries.map(re => ({id: re.id, data: re.date.toISOString(), custoUnit: re.unitPrice })));
+      // DETAILED COST DEBUG: console.log(`Encontradas ${relevantEntries.length} entradas RELEVANTES (data <= data da venda E custoUnit > 0) para o produto ID '${sale.productId}':`, relevantEntries.map(re => ({id: re.id, data: re.date.toISOString(), custoUnit: re.unitPrice })));
 
       if (relevantEntries.length > 0) {
-        // relevantEntries já está ordenada por data ASC porque sortedEntries estava.
-        // A última é a entrada relevante mais recente.
+        // `relevantEntries` is already sorted by date ASC because `sortedEntries` was.
+        // The last entry in `relevantEntries` is the most recent one that is still on or before the sale date.
         const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
-        // DETAILED COST DEBUG: console.log(`Entrada relevante MAIS RECENTE SELECIONADA: ID ${latestRelevantEntry.id}, Data: ${latestRelevantEntry.date.toISOString()}, Custo Unitário: ${latestRelevantEntry.unitPrice}`);
-        const costForThisSale = latestRelevantEntry.unitPrice * sale.quantity;
-        analysis.totalCost += costForThisSale;
-        overallTotalCostOfGoodsSold += costForThisSale;
-        salesWithCostCount++;
-        // DETAILED COST DEBUG: console.log(`Custo para este item da venda: ${costForThisSale.toFixed(2)}. Custo total acumulado para o produto: ${analysis.totalCost.toFixed(2)}`);
+        // DETAILED COST DEBUG: console.log(`Entrada relevante MAIS RECENTE SELECIONADA para custo: ID '${latestRelevantEntry.id}', Data: ${latestRelevantEntry.date.toISOString()}, Custo Unitário: ${latestRelevantEntry.unitPrice.toFixed(2)}`);
+        
+        const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
+        analysis.totalCost += costForThisSaleItem;
+        overallTotalCostOfGoodsSold += costForThisSaleItem;
+        salesWithCostCount++; // Increment count of sales for which cost was successfully calculated
+        // DETAILED COST DEBUG: console.log(`Custo para este item da venda (ID ${sale.id}): ${costForThisSaleItem.toFixed(2)} (Custo Unit. ${latestRelevantEntry.unitPrice.toFixed(2)} * Qtd ${sale.quantity}). Custo total acumulado para o PRODUTO '${sale.productId}': ${analysis.totalCost.toFixed(2)}`);
       } else {
-        // DETAILED COST DEBUG: console.warn(`NENHUMA entrada válida (custo > 0 e data <= data da venda) encontrada para o Produto ID ${sale.productId} para esta venda (ID ${sale.id}). Custo para este item da venda será R$0,00.`);
-        costCouldNotBeCalculatedForAnySale = true;
+        // DETAILED COST DEBUG: console.warn(`NENHUMA entrada de custo válida (Custo Unitário > 0 e Data da Entrada <= Data da Venda) encontrada para o Produto ID '${sale.productId}' para esta venda (ID ${sale.id}). O custo para este item da venda será R$0,00.`);
+        costCouldNotBeCalculatedForAnySale = true; // Flag that at least one sale item couldn't have its cost determined
       }
-      // DETAILED COST DEBUG: console.groupEnd();
+      // DETAILED COST DEBUG: console.groupEnd(); // End group for this sale
     });
+    // DETAILED COST DEBUG: console.groupEnd(); // End group for CÁLCULO DE CUSTO DETALHADO
     
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
+      // Filter results based on selectedProductFilter: if a specific product is chosen, only show that; otherwise, show all products that had sales.
       .filter(analysis => selectedProductFilter !== ALL_FILTER_VALUE ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
       .map(analysis => {
         const totalProfit = analysis.totalRevenue - analysis.totalCost;
+        // Profit margin is calculated as (Total Profit / Total Revenue) * 100. Handle division by zero.
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
         return { ...analysis, totalProfit, profitMargin: parseFloat(profitMargin.toFixed(2)) };
-      }).sort((a, b) => b.totalProfit - a.totalProfit);
+      }).sort((a, b) => b.totalProfit - a.totalProfit); // Sort by total profit descending
     
-    // DETAILED COST DEBUG: console.log("--- RELATORIOS (SUMÁRIO): RESUMO FINAL DO CUSTO ---");
-    // DETAILED COST DEBUG: console.log("Receita Total (Vendas):", totalRevenue.toFixed(2));
-    // DETAILED COST DEBUG: console.log("Custo Total Estimado (CMV):", overallTotalCostOfGoodsSold.toFixed(2));
+    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): RESUMO FINAL DO CÁLCULO DE CUSTOS E LUCROS ---");
+    // DETAILED COST DEBUG: console.log("Receita Total (Vendas Brutas, após filtros):", totalRevenue.toFixed(2));
+    // DETAILED COST DEBUG: console.log("Custo Total Estimado (CMV, com base nas Entradas válidas):", overallTotalCostOfGoodsSold.toFixed(2));
     // DETAILED COST DEBUG: console.log("Lucro Total Estimado (Receita - Custo):", (totalRevenue - overallTotalCostOfGoodsSold).toFixed(2));
-    // DETAILED COST DEBUG: console.log("Número de registros de venda com custo calculado:", salesWithCostCount, "de", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Algum item de venda não teve custo calculado?", costCouldNotBeCalculatedForAnySale);
-    // DETAILED COST DEBUG: console.log("Dados de Lucratividade por Produto (processados):", processedProductProfitData);
-    // DETAILED COST DEBUG: console.groupEnd();
+    // DETAILED COST DEBUG: console.log("Número de registros de VENDA processados (após filtros):", allSalesToProcess.length);
+    // DETAILED COST DEBUG: console.log("Número de registros de VENDA com custo efetivamente calculado:", salesWithCostCount);
+    // DETAILED COST DEBUG: console.log("Algum item de venda NÃO teve seu custo calculado (faltou Entrada válida)?", costCouldNotBeCalculatedForAnySale);
+    // DETAILED COST DEBUG: console.log("Dados de Lucratividade por Produto (final, após filtros e ordenação):", processedProductProfitData);
+    // DETAILED COST DEBUG: console.groupEnd(); // End group for RESUMO FINAL
+    // DETAILED COST DEBUG: console.groupEnd(); // End group for PROCESSAMENTO DE DADOS
 
     return {
       monthlySales: processedMonthlySales,
@@ -298,14 +308,10 @@ export default function RelatoriosPage() {
         numberOfSalesProcessed: allSalesToProcess.length,
         numberOfSalesWithCost: salesWithCostCount,
       },
-      hasIncompleteCosting: costCouldNotBeCalculatedForAnySale,
+      hasIncompleteCostingData: costCouldNotBeCalculatedForAnySale,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedProductFilter]);
-
-  useEffect(() => {
-    setHasIncompleteCostingData(processedData.hasIncompleteCosting);
-  }, [processedData.hasIncompleteCosting]);
 
 
   const chartLabelFormatter = (value: number) => isMounted && value > 0 ? String(Math.round(value)) : '';
@@ -318,10 +324,12 @@ export default function RelatoriosPage() {
     if (!isLoading && isMounted && data.length === 0) {
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
     }
-    if (isLoading && isMounted && data.length > 0 && !processedData.summaryMetrics.totalRevenue) { // Specific check if filters result in no data after loading
+    if (isLoading && isMounted && data.length > 0 && !processedData.summaryMetrics.totalRevenue && selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE && rawSales.length > 0) { 
+       //This condition attempts to catch if there are sales but filters might be making data disappear before full processing
+       // However, the primary check for `data.length === 0` after loading is more reliable.
        return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
     }
-    if (isLoading && isMounted) { return <div className={`flex flex-col items-center justify-center ${minHeight} py-10`}><Skeleton className="w-full h-full" /></div>; } // Loading state after mount but before data processing is complete for charts
+    if (isLoading && isMounted) { return <div className={`flex flex-col items-center justify-center ${minHeight} py-10`}><Skeleton className="w-full h-full" /></div>; } 
     return <div className={minHeight}>{chartComponent}</div>;
   };
 
@@ -331,7 +339,7 @@ export default function RelatoriosPage() {
   };
 
 
-  if (isLoading && !isMounted) { // Initial loading state before any data fetching or processing
+  if (isLoading && !isMounted) { 
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando relatórios...</p></div>;
   }
 
@@ -345,6 +353,7 @@ export default function RelatoriosPage() {
           </div>
            <div className="text-primary-foreground/80 mt-1">
             Acompanhe as métricas chave do seu negócio. O <strong className="text-primary-foreground">Lucro Total Estimado</strong> é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Total Estimado (dos Custos Unitários registrados nas Entradas)</strong>.
+            <br/>Certifique-se que os <strong className="text-primary-foreground">Custos Unitários</strong> e as <strong className="text-primary-foreground">Datas</strong> nas <strong className="text-primary-foreground">Entradas</strong> de estoque estão corretos para um cálculo preciso.
            </div>
         </CardHeader>
         <CardContent className="p-6">
@@ -396,7 +405,7 @@ export default function RelatoriosPage() {
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Custo Total Estimado (CMV)</CardTitle><Receipt className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                          <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Custo dos produtos vendidos, baseado no 'Custo Unitário' das Entradas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Custo dos produtos vendidos, baseado EXCLUSIVAMENTE no 'Custo Unitário' das Entradas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -429,18 +438,18 @@ export default function RelatoriosPage() {
                 </Card>
             </div>
 
-             {isMounted && processedData.hasIncompleteCosting && (
+             {isMounted && processedData.hasIncompleteCostingData && (
                 <Alert variant="destructive" className="mb-6">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Atenção ao Cálculo de Custo!</AlertTitle>
                     <AlertDescription>
-                        Para <strong className="font-semibold">{processedData.summaryMetrics.numberOfSalesProcessed - processedData.summaryMetrics.numberOfSalesWithCost} de {processedData.summaryMetrics.numberOfSalesProcessed}</strong> vendas processadas (com os filtros atuais), o custo não pôde ser determinado. 
-                        Isso significa que o "Custo Estimado Total" e o "Lucro Estimado Total" podem estar <strong className="font-semibold">SUBESTIMADOS</strong>.
-                        <br /><strong>Verifique seus lançamentos de 'Entrada':</strong>
+                        Para <strong className="font-semibold">{processedData.summaryMetrics.numberOfSalesProcessed - processedData.summaryMetrics.numberOfSalesWithCost} de {processedData.summaryMetrics.numberOfSalesProcessed}</strong> vendas processadas (com os filtros atuais), o CUSTO NÃO PÔDE SER DETERMINADO. 
+                        Isso significa que o "Custo Total Estimado" e o "Lucro Total Estimado" podem estar <strong className="font-semibold">INCORRETOS (subestimados)</strong>.
+                        <br/><strong className="block mt-1">Verifique seus lançamentos de 'Entrada':</strong>
                         <ul className="list-disc pl-5 mt-1 text-xs space-y-0.5">
                             <li>O produto vendido possui uma 'Entrada' correspondente (o ID do produto deve ser o mesmo)?</li>
-                            <li>O 'Custo Unitário' na 'Entrada' (o preço que você pagou pelo produto) é <strong>MAIOR QUE ZERO</strong>?</li>
-                            <li>A 'Data da Entrada' é <strong>ANTERIOR ou IGUAL</strong> à data da venda?</li>
+                            <li>O <strong className="text-destructive-foreground">'Custo Unitário'</strong> na 'Entrada' (o preço que você pagou pelo produto) é <strong className="underline">MAIOR QUE ZERO</strong>?</li>
+                            <li>A <strong className="text-destructive-foreground">'Data da Entrada'</strong> é <strong className="underline">ANTERIOR ou IGUAL</strong> à data da venda? O sistema usa a entrada mais recente que atenda a essa condição.</li>
                         </ul>
                          <p className="mt-2 text-xs">Para depurar, DESCOMENTE as linhas `// DETAILED COST DEBUG:` no arquivo `src/app/relatorios/page.tsx` e verifique o console do navegador (F12) para rastrear o cálculo de cada venda.</p>
                     </AlertDescription>
@@ -525,19 +534,18 @@ export default function RelatoriosPage() {
                         <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto</CardTitle>
                         <CardDescription className="text-primary-foreground/80">
                             Detalhes de receita, custo e lucro por produto {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}. Lucro = Receita - Custo Estimado.
-                            <br/>O "Custo Total Estimado" é crucial para este cálculo. Se estiver R$ 0,00, o Lucro será igual à Receita, o que geralmente indica um problema na entrada de dados de custo.
+                            <br/>O "Custo Estimado Total" é derivado EXCLUSIVAMENTE do "Custo Unitário" registrado na tela de <strong className="text-primary-foreground">'Entradas'</strong>.
                         </CardDescription>
                     </div>
                     <div className="mt-4 text-sm text-primary-foreground/80 border-2 border-dashed border-primary/30 p-4 rounded-md bg-primary/5">
-                        <strong className="block mb-2 text-md text-primary-foreground font-semibold flex items-center"><Info size={18} className="mr-2 text-primary"/>COMO GARANTIR O CÁLCULO CORRETO DO CUSTO E LUCRO:</strong>
-                        <p className="mb-1 text-xs">O "Custo Estimado" de um produto vendido é obtido da tela de <strong className="text-primary-foreground">'Entradas'</strong> de estoque.</p>
-                        <p className="mb-2 text-xs">Se o "Custo Estimado" estiver <strong className="text-primary-foreground">R$ 0,00</strong> para um produto na tabela abaixo (e ele teve vendas), verifique se as seguintes condições foram atendidas para CADA VENDA daquele produto:</p>
+                        <strong className="block mb-2 text-md text-primary-foreground font-semibold flex items-center"><Info size={18} className="mr-2 text-primary"/>PARA GARANTIR O CÁLCULO CORRETO DO CUSTO E LUCRO:</strong>
+                        <p className="mb-2 text-xs">Se o "Custo Estimado Total" estiver <strong className="text-primary-foreground">R$ 0,00</strong> para um produto na tabela abaixo (e ele teve vendas), verifique se as seguintes condições foram atendidas para CADA VENDA daquele produto:</p>
                         <ol className="list-decimal list-inside text-xs space-y-1.5 pl-2">
-                            <li><strong className="text-primary-foreground">PRODUTO CORRETO NA ENTRADA:</strong> Deve existir um registro de 'Entrada' para <strong className="underline">ESSE MESMO PRODUTO</strong> no sistema (o ID do produto deve ser o mesmo).</li>
-                            <li><strong className="text-primary-foreground">CUSTO UNITÁRIO &gt; 0 NA ENTRADA:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' (o preço que você pagou pelo produto) <strong className="underline">DEVE SER MAIOR QUE ZERO</strong>.</li>
+                            <li><strong className="text-primary-foreground">PRODUTO CORRESPONDENTE:</strong> Deve existir um registro de 'Entrada' para <strong className="underline">ESSE MESMO PRODUTO</strong> (o ID do produto deve ser idêntico).</li>
+                            <li><strong className="text-primary-foreground">CUSTO UNITÁRIO NA ENTRADA &gt; 0:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' (o preço que você pagou pelo produto) <strong className="underline">DEVE SER MAIOR QUE ZERO</strong>.</li>
                             <li><strong className="text-primary-foreground">DATA DA ENTRADA CORRETA:</strong> A 'Data da Entrada' do custo deve ser <strong className="underline">ANTERIOR ou IGUAL</strong> à 'Data da Saída' (venda) do produto. O sistema usa a entrada de custo mais recente que atenda essa condição.</li>
                         </ol>
-                         <p className="mt-3 text-xs"><strong className="text-primary-foreground">DEPURAÇÃO AVANÇADA:</strong> Se, após verificar, o custo ainda não aparecer, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`). Abra o console do navegador (F12) para ver como os dados são processados e quais entradas são (ou não) consideradas. Isso ajudará a identificar se o problema é com a data da entrada, o custo unitário, o ID do produto, ou outra questão nos dados.</p>
+                         <p className="mt-3 text-xs"><strong className="text-primary-foreground">FERRAMENTA DE DEPURAÇÃO:</strong> Se, após verificar, o custo ainda não aparecer, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`). Abra o console do navegador (F12) para ver como os dados são processados e quais entradas são (ou não) consideradas. Isso ajudará a identificar se o problema é com a data da entrada, o custo unitário, o ID do produto, ou outra questão nos dados.</p>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -547,7 +555,7 @@ export default function RelatoriosPage() {
                          <div className="flex flex-col items-center justify-center h-full py-10 text-center text-muted-foreground">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade (verifique filtros ou dados de entrada).</p>
-                            <p className="text-sm">Registre vendas e entradas de estoque (com custos e datas corretas) para ver esta análise.</p>
+                            <p className="text-sm">Registre vendas e entradas de estoque (com custos unitários maiores que zero e datas corretas) para ver esta análise.</p>
                         </div>
                     ) : isMounted ? (
                         <div className="overflow-x-auto">
@@ -575,9 +583,9 @@ export default function RelatoriosPage() {
                             ))}
                             </TableBody>
                             <TableCaption>
-                                Lucratividade estimada = Receita das Vendas - Custo das Entradas.
-                                Se o Custo Estimado Total for R$0,00 para um produto com vendas, verifique se as Entradas de estoque foram registradas com <strong className="text-primary-foreground/80">Custos (Custo Unitário &gt; 0)</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong>.
-                                {isMounted && processedData.hasIncompleteCosting && <span className="block mt-1 text-xs text-destructive">Atenção: Para algumas vendas, o custo não pôde ser determinado. Verifique os critérios de entrada. DESCOMENTE as linhas "// DETAILED COST DEBUG:" no código e use o console do navegador (F12) para depurar.</span>}
+                                Lucratividade Estimada = Receita das Vendas - Custo das Entradas.
+                                Se o Custo Estimado Total for R$0,00 para um produto com vendas, verifique se as <strong className="text-primary-foreground/80">Entradas</strong> de estoque foram registradas com <strong className="text-primary-foreground/80">Custos Unitários maiores que zero</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong>.
+                                {isMounted && processedData.hasIncompleteCostingData && <span className="block mt-1 text-xs text-destructive">Atenção: Para algumas vendas, o custo não pôde ser determinado. Verifique os critérios de entrada. DESCOMENTE as linhas "// DETAILED COST DEBUG:" no código e use o console do navegador (F12) para depurar.</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -589,7 +597,7 @@ export default function RelatoriosPage() {
             </Card>
 
             <Card className="mt-6">
-                <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><TrendingDown size={20} className="text-orange-500" />Produtos com Estoque Baixo (Top 10)</CardTitle><CardDescription>Produtos com estoque menor que 10 unidades (ou zerado). Não afetado por filtros de venda.</CardDescription></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><TrendingDown size={20} className="text-orange-500" />Produtos com Estoque Baixo (Top 10)</CardTitle><CardDescription>Produtos com estoque menor que 10 unidades (incluindo zerado). Não afetado por filtros de venda.</CardDescription></CardHeader>
                 <CardContent>
                 {renderChartOrMessage(processedData.stockLevels,
                     <ChartContainer config={stockChartConfig} className="h-full w-full">

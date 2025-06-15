@@ -59,7 +59,7 @@ export default function EstoquePage() {
             </CardTitle>
           </div>
            <CardDescription className="text-primary-foreground/80">
-            Visualize os níveis de estoque atuais dos seus produtos.
+            Visualize os níveis de estoque atuais dos seus produtos. O preço de venda é gerenciado na tela de Produtos e Saídas.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -70,7 +70,7 @@ export default function EstoquePage() {
                   <TableHead className="w-[80px]">Imagem</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead className="text-right">Preço (R$)</TableHead>
+                  {/* Price column removed as per request */}
                   <TableHead className="text-right">Estoque Atual</TableHead>
                 </TableRow>
               </TableHeader>
@@ -91,7 +91,7 @@ export default function EstoquePage() {
                     </TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell className="text-muted-foreground">{product.category}</TableCell>
-                    <TableCell className="text-right">{product.price.toFixed(2)}</TableCell>
+                    {/* Price cell removed */}
                     <TableCell className={`text-right font-bold ${getStockIndicatorColor(product.stock)}`}>
                       {product.stock}
                       {product.stock > 0 && product.stock < 10 && <AlertTriangle className="inline-block ml-1 h-4 w-4" />}
@@ -100,7 +100,7 @@ export default function EstoquePage() {
                   </TableRow>
                 ))}
               </TableBody>
-              <TableCaption>Lista de produtos e seus respectivos níveis de estoque.</TableCaption>
+              <TableCaption>Lista de produtos e seus respectivos níveis de estoque. O custo de aquisição é gerenciado na tela de "Entrada".</TableCaption>
             </Table>
           ) : (
             <div className="text-center py-10 text-muted-foreground">
