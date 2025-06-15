@@ -18,31 +18,33 @@ export interface Promotion {
 
 export interface EntryFormValues {
   date: Date;
-  supplierId: string; // Changed from supplier: string
+  supplierId: string; 
   productId: string;
   quantity: number;
   unitPrice: number; // Represents the cost per unit (Custo Unitário)
 }
 
-export interface Entry extends Omit<EntryFormValues, 'supplierId'> { // Omit supplierId from here as it's directly in EntryFormValues
+export interface Entry extends Omit<EntryFormValues, 'supplierId'> { 
   id: string;
-  supplierId: string; // Explicitly add supplierId
-  supplierName?: string; // Added for display
+  supplierId: string; 
+  supplierName?: string; 
   totalValue: number; // Represents total cost (quantity * unitPrice)
   productName?: string;
 }
 
 export interface SaleFormValues {
   date: Date;
-  customer: string;
+  clientId: string; // Changed from customer: string
   productId: string;
   quantity: number;
   unitPrice: number; // Represents the selling price per unit (Preço de Venda Unitário)
   discount: number;
 }
 
-export interface Sale extends SaleFormValues {
+export interface Sale extends Omit<SaleFormValues, 'clientId'> { // Omitted clientId to avoid duplication
   id: string;
+  clientId: string; // Added clientId
+  customerName?: string; // Added customerName for display
   totalValue: number; // Represents total revenue for this sale ((quantity * unitPrice) - discount)
   productName?: string;
 }
@@ -100,3 +102,4 @@ export interface SupplierFormValues {
 export interface Supplier extends SupplierFormValues {
   id: string;
 }
+

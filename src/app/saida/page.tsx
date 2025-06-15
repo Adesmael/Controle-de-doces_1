@@ -21,13 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Sale, SaleFormValues } from "@/lib/types";
+import type { Product, Sale, SaleFormValues, Client } from "@/lib/types"; // Added Client
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getProducts, getSales, addSale, getProductById, updateProduct, deleteSale } from "@/lib/storage";
+import { getProducts, getSales, addSale, getProductById, updateProduct, deleteSale, getClients } from "@/lib/storage"; // Added getClients
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,17 +37,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 const saleFormSchema = z.object({
   date: z.date({
     required_error: "A data da saída é obrigatória.",
   }),
-  customer: z.string().min(2, {
-    message: "O nome do cliente deve ter pelo menos 2 caracteres.",
-  }).max(100, {
-    message: "O nome do cliente não pode ter mais de 100 caracteres.",
+  clientId: z.string().min(1, { // Changed from customer to clientId
+    message: "Selecione um cliente.",
   }),
   productId: z.string().min(1, {
     message: "Selecione um produto.",
@@ -68,6 +65,7 @@ export default function SaidaPage() {
   const { toast } = useToast();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clientsList, setClientsList] = useState<Client[]>([]); // State for clients
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,15 +76,17 @@ export default function SaidaPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [storedProducts, storedSales] = await Promise.all([
+      const [storedProducts, storedSales, storedClients] = await Promise.all([ // Added getClients
         getProducts(),
-        getSales()
+        getSales(),
+        getClients() 
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setSales(storedSales); // Already sorted by date descending in getSales
+      setSales(storedSales); 
+      setClientsList(storedClients.sort((a,b) => (a.tradingName || a.companyName).localeCompare(b.tradingName || b.companyName))); // Set clients
     } catch (error) {
       console.error("Failed to fetch data:", error);
-      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou saídas.", variant: "destructive" });
+      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos, saídas ou clientes.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +101,7 @@ export default function SaidaPage() {
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
       date: new Date(),
-      customer: "",
+      clientId: "", // Changed from customer
       productId: "",
       quantity: 1,
       unitPrice: 0,
@@ -149,9 +149,15 @@ export default function SaidaPage() {
     setIsSubmitting(true);
     try {
       const selectedProduct = await getProductById(data.productId);
+      const selectedClient = clientsList.find(c => c.id === data.clientId); // Get selected client
 
       if (!selectedProduct) {
           toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
+          setIsSubmitting(false);
+          return;
+      }
+      if (!selectedClient) { // Check if client is found
+          toast({ title: "Erro", description: "Cliente não encontrado.", variant: "destructive" });
           setIsSubmitting(false);
           return;
       }
@@ -165,9 +171,15 @@ export default function SaidaPage() {
 
       const newSale: Sale = {
         id: String(Date.now()),
-        ...data,
-        totalValue: parseFloat(Math.max(0, totalValue).toFixed(2)),
+        date: data.date,
+        clientId: data.clientId,
+        customerName: selectedClient.tradingName || selectedClient.companyName, // Store client name
+        productId: data.productId,
         productName: selectedProduct.name,
+        quantity: data.quantity,
+        unitPrice: data.unitPrice,
+        discount: data.discount,
+        totalValue: parseFloat(Math.max(0, totalValue).toFixed(2)),
       };
 
       await addSale(newSale);
@@ -180,13 +192,13 @@ export default function SaidaPage() {
 
       toast({
         title: "Saída Registrada!",
-        description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${data.customer} registrada. Estoque atualizado.`,
+        description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${selectedClient.tradingName || selectedClient.companyName} registrada. Estoque atualizado.`,
       });
 
       await fetchData(); 
       form.reset({
         date: new Date(),
-        customer: "",
+        clientId: "", // Reset clientId
         productId: "",
         quantity: 1,
         unitPrice: 0,
@@ -303,13 +315,24 @@ export default function SaidaPage() {
 
               <FormField
                 control={form.control}
-                name="customer"
+                name="clientId" // Changed from customer to clientId
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><User size={16} className="mr-2"/>Cliente</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nome do Cliente" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || ""} defaultValue="">
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um cliente" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {clientsList.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.tradingName || client.companyName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -423,7 +446,7 @@ export default function SaidaPage() {
                 {sales.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell>{sale.customer}</TableCell>
+                    <TableCell>{sale.customerName || sale.clientId}</TableCell> {/* Display customerName */}
                     <TableCell>{sale.productName}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>
                     <TableCell className="text-right">R$ {sale.unitPrice.toFixed(2)}</TableCell>
@@ -448,7 +471,7 @@ export default function SaidaPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Saída</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta saída de "{saleToDelete?.productName}" para o cliente "{saleToDelete?.customer}"?
+              Tem certeza que deseja excluir esta saída de "{saleToDelete?.productName}" para o cliente "{saleToDelete?.customerName || saleToDelete?.clientId}"?
               Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -464,3 +487,4 @@ export default function SaidaPage() {
     </div>
   );
 }
+
