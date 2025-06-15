@@ -17,7 +17,7 @@ import { useState } from 'react';
 
 const navLinks = [
   { href: "/entrada", label: "Entrada", icon: ArrowRightLeft },
-  { href: "/saida", label: "Saída", icon: ArrowRightLeft }, // icon is -scale-x-100 on actual render if needed
+  { href: "/saida", label: "Saída", icon: ArrowRightLeft }, 
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
@@ -33,10 +33,9 @@ const Header = () => {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const DesktopNav = () => (
-    <nav className="flex items-center space-x-1 bg-primary"> {/* Ensures nav bar itself has primary background */}
+    <nav className="flex items-center space-x-1 bg-primary">
       {navLinks.map(link => {
         const Icon = link.icon;
-        // Apply flip to Saida icon if that's the one
         const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
             <Button key={link.href} variant="ghost" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/80 btn-animated px-3 py-2">
@@ -98,4 +97,3 @@ const Header = () => {
 };
 
 export default Header;
-
