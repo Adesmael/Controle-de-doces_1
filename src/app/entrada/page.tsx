@@ -77,7 +77,7 @@ export default function EntradaPage() {
         getSuppliers()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setEntries(storedEntries);
+      setEntries(storedEntries.map(e => ({...e, date: new Date(e.date)})));
       setSuppliersList(storedSuppliers.sort((a,b) => a.supplierName.localeCompare(b.supplierName)));
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -384,21 +384,7 @@ export default function EntradaPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell>{entry.supplierName || entry.supplierId}</TableCell>
-                    <TableCell>{entry.productName}</TableCell>
-                    <TableCell className="text-right">{entry.quantity}</TableCell>
-                    <TableCell className="text-right">R$ {entry.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-medium">R$ {entry.totalValue.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(entry)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80">
-                        <Trash2 size={16}/>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {entries.map((entry) => (<TableRow key={entry.id}><TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell><TableCell>{entry.supplierName || entry.supplierId}</TableCell><TableCell>{entry.productName}</TableCell><TableCell className="text-right">{entry.quantity}</TableCell><TableCell className="text-right">R$ {entry.unitPrice.toFixed(2)}</TableCell><TableCell className="text-right font-medium">R$ {entry.totalValue.toFixed(2)}</TableCell><TableCell className="text-center"><Button variant="ghost" size="sm" onClick={() => handleDeleteClick(entry)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80"><Trash2 size={16}/></Button></TableCell></TableRow>))}
               </TableBody>
                <TableCaption>Lista das últimas entradas de produtos. "Custo Unit." refere-se ao custo de aquisição do produto.</TableCaption>
             </Table>

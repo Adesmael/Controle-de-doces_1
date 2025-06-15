@@ -111,7 +111,7 @@ export default function RelatoriosPage() {
         setRawProducts(productsFromDB);
         setRawEntries(entriesFromDB.map(e => ({ ...e, date: new Date(e.date) })));
 
-        const clients = Array.from(new Set(salesFromDB.map(s => s.customer))).sort();
+        const clients = Array.from(new Set(salesFromDB.map(s => s.customerName || s.clientId))).sort();
         setUniqueClients(clients);
         
         const prods = productsFromDB.map(p => ({id: p.id, name: p.name})).sort((a,b) => a.name.localeCompare(b.name));
@@ -130,7 +130,7 @@ export default function RelatoriosPage() {
   const filteredSales = useMemo(() => {
     let tempSales = [...rawSales];
     if (selectedClient !== ALL_FILTER_VALUE) {
-      tempSales = tempSales.filter(s => s.customer === selectedClient);
+       tempSales = tempSales.filter(s => (s.customerName || s.clientId) === selectedClient);
     }
     if (selectedProductFilter !== ALL_FILTER_VALUE) {
       tempSales = tempSales.filter(s => s.productId === selectedProductFilter);
@@ -194,7 +194,7 @@ export default function RelatoriosPage() {
       .map(product => ({ name: product.name, stock: product.stock }));
 
     const totalRevenueFromFilteredSales = allSalesToProcess.reduce((sum, sale) => sum + sale.totalValue, 0);
-    const uniqueCustomers = new Set(allSalesToProcess.map(sale => sale.customer.toLowerCase().trim()));
+    const uniqueCustomers = new Set(allSalesToProcess.map(sale => (sale.customerName || sale.clientId).toLowerCase().trim()));
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
     
     let totalCostOfAcquisitionsForSummaryCard = 0;
@@ -518,16 +518,7 @@ export default function RelatoriosPage() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {processedData.salesProfitAnalysisData.map((item) => (
-                                <TableRow key={item.productId} className={item.totalCost === 0 && item.totalSalesRecords > 0 ? "bg-orange-500/5 hover:bg-orange-500/10" : ""}>
-                                <TableCell className="font-medium">{item.productName}</TableCell>
-                                <TableCell className="text-right">{item.unitsSold}</TableCell>
-                                <TableCell className="text-right">{isMounted ? item.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell>
-                                <TableCell className="text-right">{isMounted ? item.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell>
-                                <TableCell className="text-right font-semibold">{isMounted ? item.totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell>
-                                <TableCell className={`text-right font-semibold ${item.profitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{isMounted ? `${item.profitMargin.toFixed(2)}%` : <Skeleton className="h-5 w-12 float-right" />}</TableCell>
-                                </TableRow>
-                            ))}
+                            {processedData.salesProfitAnalysisData.map((item) => (<TableRow key={item.productId} className={item.totalCost === 0 && item.totalSalesRecords > 0 ? "bg-orange-500/5 hover:bg-orange-500/10" : ""}><TableCell className="font-medium">{item.productName}</TableCell><TableCell className="text-right">{item.unitsSold}</TableCell><TableCell className="text-right">{isMounted ? item.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell><TableCell className="text-right">{isMounted ? item.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell><TableCell className="text-right font-semibold">{isMounted ? item.totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell><TableCell className={`text-right font-semibold ${item.profitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{isMounted ? `${item.profitMargin.toFixed(2)}%` : <Skeleton className="h-5 w-12 float-right" />}</TableCell></TableRow>))}
                             </TableBody>
                             <TableCaption>
                                 "Custo Total (R$)" é a soma de todas as Entradas para o produto. "Lucro Estimado" = Receita - Custo Total de Entradas.

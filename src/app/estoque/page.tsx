@@ -32,8 +32,8 @@ export default function EstoquePage() {
           getSales()
         ]);
         setProducts(storedProducts.sort((a, b) => a.name.localeCompare(b.name)));
-        setEntries(storedEntries);
-        setSales(storedSales);
+        setEntries(storedEntries.map(e => ({...e, date: new Date(e.date)})));
+        setSales(storedSales.map(s => ({...s, date: new Date(s.date)})));
       } catch (error) {
         console.error("Failed to fetch data for stock page:", error);
         toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar os dados para o estoque.", variant: "destructive" });
@@ -100,39 +100,7 @@ export default function EstoquePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productStockDetails.map((product) => (
-                    <TableRow key={product.id} className={product.stock === 0 ? "opacity-60" : ""}>
-                      <TableCell>
-                        <div className="relative w-16 h-16 rounded-md overflow-hidden">
-                          <Image
-                            src={product.imageUrl}
-                            alt={product.name}
-                            fill
-                            sizes="64px"
-                            className="object-cover"
-                            data-ai-hint={product.dataAiHint || "product photo"}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{product.category}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1 text-blue-600">
-                           {product.totalEntries} <ArrowUpCircle size={16}/>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1 text-red-600">
-                          {product.totalSales} <ArrowDownCircle size={16}/>
-                        </div>
-                      </TableCell>
-                      <TableCell className={`text-right font-bold ${getStockIndicatorColor(product.stock)}`}>
-                        {product.stock}
-                        {product.stock > 0 && product.stock < 10 && <AlertTriangle className="inline-block ml-1 h-4 w-4" />}
-                        {product.stock === 0 && <AlertTriangle className="inline-block ml-1 h-4 w-4 text-destructive" />}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {productStockDetails.map((product) => (<TableRow key={product.id} className={product.stock === 0 ? "opacity-60" : ""}><TableCell><div className="relative w-16 h-16 rounded-md overflow-hidden"><Image src={product.imageUrl} alt={product.name} fill sizes="64px" className="object-cover" data-ai-hint={product.dataAiHint || "product photo"}/></div></TableCell><TableCell className="font-medium">{product.name}</TableCell><TableCell className="text-muted-foreground">{product.category}</TableCell><TableCell className="text-right"><div className="flex items-center justify-end gap-1 text-blue-600">{product.totalEntries} <ArrowUpCircle size={16}/></div></TableCell><TableCell className="text-right"><div className="flex items-center justify-end gap-1 text-red-600">{product.totalSales} <ArrowDownCircle size={16}/></div></TableCell><TableCell className={`text-right font-bold ${getStockIndicatorColor(product.stock)}`}>{product.stock}{product.stock > 0 && product.stock < 10 && <AlertTriangle className="inline-block ml-1 h-4 w-4" />}{product.stock === 0 && <AlertTriangle className="inline-block ml-1 h-4 w-4 text-destructive" />}</TableCell></TableRow>))}
                 </TableBody>
                 <TableCaption>
                   Lista de produtos com totais de entradas, saídas e níveis de estoque atuais.

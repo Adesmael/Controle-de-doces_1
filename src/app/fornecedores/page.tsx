@@ -76,7 +76,7 @@ export default function FornecedoresPage() {
     setIsLoading(true);
     try {
       const storedSuppliers = await getSuppliers();
-      setSuppliers(storedSuppliers);
+      setSuppliers(storedSuppliers.map(s => ({ ...s, registrationDate: new Date(s.registrationDate) })));
     } catch (error) {
       console.error("Failed to fetch suppliers:", error);
       toast({ title: "Erro ao carregar fornecedores", description: "Não foi possível buscar os fornecedores.", variant: "destructive" });
@@ -347,22 +347,7 @@ export default function FornecedoresPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {suppliers.map((supplier) => (
-                      <TableRow key={supplier.id}>
-                        <TableCell className="font-medium">{supplier.supplierName}</TableCell>
-                        <TableCell>{supplier.phone}</TableCell>
-                        <TableCell>{supplier.city}</TableCell>
-                        <TableCell className="max-w-xs truncate">{supplier.suppliedProducts}</TableCell>
-                        <TableCell className="text-center space-x-1">
-                           <Button variant="outline" size="sm" onClick={() => handleEditSupplier(supplier)} className="btn-animated" disabled={isSubmitting}>
-                             <Edit3 size={14}/>
-                           </Button>
-                           <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(supplier)} className="btn-animated" disabled={isSubmitting}>
-                             <Trash2 size={14}/>
-                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {suppliers.map((supplier) => (<TableRow key={supplier.id}><TableCell className="font-medium">{supplier.supplierName}</TableCell><TableCell>{supplier.phone}</TableCell><TableCell>{supplier.city}</TableCell><TableCell className="max-w-xs truncate">{supplier.suppliedProducts}</TableCell><TableCell className="text-center space-x-1"><Button variant="outline" size="sm" onClick={() => handleEditSupplier(supplier)} className="btn-animated" disabled={isSubmitting}><Edit3 size={14}/></Button><Button variant="destructive" size="sm" onClick={() => handleDeleteClick(supplier)} className="btn-animated" disabled={isSubmitting}><Trash2 size={14}/></Button></TableCell></TableRow>))}
                   </TableBody>
                   <TableCaption>Lista de fornecedores cadastrados.</TableCaption>
                 </Table>

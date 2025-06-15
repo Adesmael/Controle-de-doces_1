@@ -82,7 +82,7 @@ export default function SaidaPage() {
         getClients() 
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
-      setSales(storedSales); 
+      setSales(storedSales.map(s => ({...s, date: new Date(s.date)}))); 
       setClientsList(storedClients.sort((a,b) => (a.tradingName || a.companyName).localeCompare(b.tradingName || b.companyName))); // Set clients
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -443,22 +443,7 @@ export default function SaidaPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell>{sale.customerName || sale.clientId}</TableCell> {/* Display customerName */}
-                    <TableCell>{sale.productName}</TableCell>
-                    <TableCell className="text-right">{sale.quantity}</TableCell>
-                    <TableCell className="text-right">R$ {sale.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">R$ {sale.discount.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-medium">R$ {sale.totalValue.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">
-                       <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(sale)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80">
-                        <Trash2 size={16}/>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sales.map((sale) => (<TableRow key={sale.id}><TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell><TableCell>{sale.customerName || sale.clientId}</TableCell><TableCell>{sale.productName}</TableCell><TableCell className="text-right">{sale.quantity}</TableCell><TableCell className="text-right">R$ {sale.unitPrice.toFixed(2)}</TableCell><TableCell className="text-right">R$ {sale.discount.toFixed(2)}</TableCell><TableCell className="text-right font-medium">R$ {sale.totalValue.toFixed(2)}</TableCell><TableCell className="text-center"><Button variant="ghost" size="sm" onClick={() => handleDeleteClick(sale)} disabled={isSubmitting} className="text-destructive hover:bg-destructive/80"><Trash2 size={16}/></Button></TableCell></TableRow>))}
               </TableBody>
                <TableCaption>Lista das últimas saídas de produtos.</TableCaption>
             </Table>

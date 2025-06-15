@@ -78,7 +78,7 @@ export default function ClientesPage() {
     setIsLoading(true);
     try {
       const storedClients = await getClients();
-      setClients(storedClients);
+      setClients(storedClients.map(c => ({ ...c, registrationDate: new Date(c.registrationDate) })));
     } catch (error) {
       console.error("Failed to fetch clients:", error);
       toast({ title: "Erro ao carregar clientes", description: "Não foi possível buscar os clientes.", variant: "destructive" });
@@ -362,22 +362,7 @@ export default function ClientesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clients.map((client) => (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">{client.tradingName}</TableCell>
-                        <TableCell>{client.companyName}</TableCell>
-                        <TableCell>{client.phone}</TableCell>
-                        <TableCell>{client.city}</TableCell>
-                        <TableCell className="text-center space-x-1">
-                           <Button variant="outline" size="sm" onClick={() => handleEditClient(client)} className="btn-animated" disabled={isSubmitting}>
-                             <Edit3 size={14}/>
-                           </Button>
-                           <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(client)} className="btn-animated" disabled={isSubmitting}>
-                             <Trash2 size={14}/>
-                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {clients.map((client) => (<TableRow key={client.id}><TableCell className="font-medium">{client.tradingName}</TableCell><TableCell>{client.companyName}</TableCell><TableCell>{client.phone}</TableCell><TableCell>{client.city}</TableCell><TableCell className="text-center space-x-1"><Button variant="outline" size="sm" onClick={() => handleEditClient(client)} className="btn-animated" disabled={isSubmitting}><Edit3 size={14}/></Button><Button variant="destructive" size="sm" onClick={() => handleDeleteClick(client)} className="btn-animated" disabled={isSubmitting}><Trash2 size={14}/></Button></TableCell></TableRow>))}
                   </TableBody>
                   <TableCaption>Lista de clientes cadastrados.</TableCaption>
                 </Table>
