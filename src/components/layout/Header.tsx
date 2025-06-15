@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from 'next/link';
-import { Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings, FileSpreadsheet } from 'lucide-react';
+import { Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -20,7 +21,6 @@ const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { href: "/relatorios-detalhados", label: "Relatórios Detalhados", icon: FileSpreadsheet },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -76,8 +76,8 @@ const Header = () => {
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/produtos" className="flex items-center gap-2.5 text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
-          <Banana size={32} />
+        <Link href="/produtos" className="flex items-center gap-2.5 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
+          <Banana size={isMobile ? 28 : 32} />
           Controle de Doces
         </Link>
         {isMobile ? <MobileNav /> : <DesktopNav />}
@@ -87,3 +87,4 @@ const Header = () => {
 };
 
 export default Header;
+

@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -58,38 +59,42 @@ export interface SalesProfitData extends ProductAnalysisData {
   profitMargin: number;    
 }
 
-export interface DetailedSaleItem extends Sale {
-  netRevenue: number;
-  unitCost?: number; 
-  totalCost?: number; 
-  profit?: number; 
-  profitMargin?: number; 
-  costCalculated: boolean; 
-}
-
-export interface CustomerSalesReport {
-  customerName: string;
-  totalRevenue: number;
-  totalCost: number;
-  totalProfit: number;
-  totalUnitsSold: number;
-}
-
-export interface ProductSalesReport {
-  productId: string;
-  productName: string;
-  totalUnitsSold: number;
-  totalRevenue: number;
-  totalCost: number;
-  totalProfit: number;
-  avgProfitMargin?: number; 
-}
 
 export interface DatePeriodSaleReport { 
   period: string; 
   totalRevenue: number;
-  totalCost: number;
-  totalProfit: number;
-  sortableDate: string; 
+  totalCost: number; // Added for consistency if needed in future summary tables
+  totalProfit: number; // Added for consistency
+  sortableDate: string; // Keeps original date for sorting, before formatting period
 }
     
+// Types below were primarily for the now-removed detailed report page.
+// They can be removed if no longer used by the main report page after its refactoring.
+// export interface DetailedSaleItem extends Sale {
+//   netRevenue: number;
+//   unitCost?: number; 
+//   totalCost?: number; 
+//   profit?: number; 
+//   profitMargin?: number; 
+//   costCalculated: boolean; 
+// }
+
+// export interface CustomerSalesReport {
+//   customerName: string;
+//   totalRevenue: number;
+//   totalCost: number;
+//   totalProfit: number;
+//   totalUnitsSold: number;
+// }
+
+// export interface ProductSalesReport {
+//   productId: string;
+//   productName: string;
+//   totalUnitsSold: number;
+//   totalRevenue: number;
+//   totalCost: number;
+//   totalProfit: number;
+//   avgProfitMargin?: number; 
+// }
+
+
