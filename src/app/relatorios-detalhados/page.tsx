@@ -47,7 +47,8 @@ export default function RelatoriosDetalhadosPage() {
       let hasAnyCostWarning = false;
 
       const processedDetailedSales: DetailedSaleItem[] = allSales.map(sale => {
-        const netRevenue = sale.totalValue; // Assuming sale.totalValue is already (unitPrice * quantity) - discount
+        // console.log(`--- DETALHADOS (ITEM VENDA): Processando Venda ID ${sale.id}, ProdutoID ${sale.productId} ('${sale.productName || 'N/A'}'), Data ${sale.date.toISOString()}, Qtd ${sale.quantity}, Valor Venda ${sale.totalValue}`);
+        const netRevenue = sale.totalValue;
         let unitCost: number | undefined = undefined;
         let totalCost: number | undefined = undefined;
         let profit: number | undefined = undefined;
@@ -57,18 +58,25 @@ export default function RelatoriosDetalhadosPage() {
         const relevantEntries = sortedEntries.filter(
           entry => entry.productId === sale.productId && 
                    entry.date.getTime() <= sale.date.getTime() && 
-                   entry.unitPrice > 0
+                   entry.unitPrice > 0 // Custo unitário da entrada deve ser positivo
         );
+        
+        // if (relevantEntries.length > 0) {
+        //    console.log(`--- DETALHADOS (ITEM VENDA ID: ${sale.id}): ENTRADAS RELEVANTES para ${sale.productName} (venda em ${sale.date.toISOString()}):`, relevantEntries.map(re => ({date: re.date.toISOString(), unitPrice: re.unitPrice, id: re.id })));
+        // }
+
 
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
+          // console.log(`--- DETALHADOS (ITEM VENDA ID: ${sale.id}): Última entrada relevante SELECIONADA para ${sale.productName}: Custo Unit. ${latestRelevantEntry.unitPrice}, Data Entrada: ${latestRelevantEntry.date.toISOString()}`);
           unitCost = latestRelevantEntry.unitPrice;
           totalCost = unitCost * sale.quantity;
           profit = netRevenue - totalCost;
           profitMargin = netRevenue > 0 ? (profit / netRevenue) * 100 : 0;
           costCalculated = true;
         } else {
-            hasAnyCostWarning = true; // A cost for at least one sale item could not be determined
+            // console.warn(`--- DETALHADOS (ITEM VENDA ID: ${sale.id}): Nenhuma entrada de custo válida encontrada para ${sale.productName} (Produto ID: ${sale.productId}). Custo para esta venda será N/D. Verifique entradas com Custo Unitário > 0 e Data Entrada <= Data Venda.`);
+            hasAnyCostWarning = true;
         }
         
         return {
@@ -80,10 +88,10 @@ export default function RelatoriosDetalhadosPage() {
           profitMargin,
           costCalculated,
         };
-      }).sort((a,b) => b.date.getTime() - a.date.getTime()); // Sort by most recent sale first
+      }).sort((a,b) => b.date.getTime() - a.date.getTime()); 
       setDetailedSales(processedDetailedSales);
       if (hasAnyCostWarning) setCostCalculationWarning(true);
-      // console.log("--- DETALHADOS: Vendas Detalhadas Processadas:", processedDetailedSales.slice(0,3));
+      // console.log("--- DETALHADOS: Vendas Detalhadas Processadas (primeiros 3):", processedDetailedSales.slice(0,3));
 
       // Aggregate by Customer
       const customerAgg: { [key: string]: { totalRevenue: number, totalCost: number, totalProfit: number, totalUnitsSold: number } } = {};
@@ -93,30 +101,32 @@ export default function RelatoriosDetalhadosPage() {
           customerAgg[key] = { totalRevenue: 0, totalCost: 0, totalProfit: 0, totalUnitsSold: 0 };
         }
         customerAgg[key].totalRevenue += ds.netRevenue;
-        customerAgg[key].totalCost += ds.totalCost || 0;
-        customerAgg[key].totalProfit += ds.profit || 0;
+        customerAgg[key].totalCost += ds.totalCost || 0; // Se totalCost for undefined, soma 0
+        // O lucro total por cliente é a soma da receita menos a soma dos custos
         customerAgg[key].totalUnitsSold += ds.quantity;
       });
       const processedCustomerSales: CustomerSalesReport[] = Object.entries(customerAgg).map(([customerName, data]) => ({
-        customerName: salesFromDB.find(s => s.customer.trim().toLowerCase() === customerName)?.customer || customerName, // Get original casing
-        ...data
+        customerName: salesFromDB.find(s => s.customer.trim().toLowerCase() === customerName)?.customer || customerName,
+        totalUnitsSold: data.totalUnitsSold,
+        totalRevenue: data.totalRevenue,
+        totalCost: data.totalCost,
+        totalProfit: data.totalRevenue - data.totalCost, // Lucro = Receita - Custo
       })).sort((a,b) => b.totalProfit - a.totalProfit);
       setCustomerSales(processedCustomerSales);
-      // console.log("--- DETALHADOS: Vendas por Cliente:", processedCustomerSales.slice(0,3));
+      // console.log("--- DETALHADOS: Vendas por Cliente (primeiros 3):", processedCustomerSales.slice(0,3));
 
 
       // Aggregate by Product
-      const productAgg: { [key: string]: { productName: string, totalUnitsSold: number, totalRevenue: number, totalCost: number, totalProfit: number, saleCountWithProfit: number, totalProfitMarginSum: number } } = {};
+      const productAgg: { [key: string]: { productName: string, totalUnitsSold: number, totalRevenue: number, totalCost: number, saleCountWithProfit: number, totalProfitMarginSum: number } } = {};
       processedDetailedSales.forEach(ds => {
         const product = productsFromDB.find(p => p.id === ds.productId);
         const productName = product?.name || `Produto ID ${ds.productId}`;
         if (!productAgg[ds.productId]) {
-          productAgg[ds.productId] = { productName, totalUnitsSold: 0, totalRevenue: 0, totalCost: 0, totalProfit: 0, saleCountWithProfit: 0, totalProfitMarginSum: 0 };
+          productAgg[ds.productId] = { productName, totalUnitsSold: 0, totalRevenue: 0, totalCost: 0, saleCountWithProfit: 0, totalProfitMarginSum: 0 };
         }
         productAgg[ds.productId].totalUnitsSold += ds.quantity;
         productAgg[ds.productId].totalRevenue += ds.netRevenue;
         productAgg[ds.productId].totalCost += ds.totalCost || 0;
-        productAgg[ds.productId].totalProfit += ds.profit || 0;
         if (ds.profitMargin !== undefined) {
             productAgg[ds.productId].saleCountWithProfit += 1;
             productAgg[ds.productId].totalProfitMarginSum += ds.profitMargin;
@@ -128,53 +138,55 @@ export default function RelatoriosDetalhadosPage() {
         totalUnitsSold: data.totalUnitsSold,
         totalRevenue: data.totalRevenue,
         totalCost: data.totalCost,
-        totalProfit: data.totalProfit,
+        totalProfit: data.totalRevenue - data.totalCost, // Lucro = Receita - Custo
         avgProfitMargin: data.saleCountWithProfit > 0 ? data.totalProfitMarginSum / data.saleCountWithProfit : undefined,
-      })).sort((a,b) => b.totalProfit - a.totalProfit);
+      })).sort((a,b) => (b.totalRevenue - b.totalCost) - (a.totalRevenue - a.totalCost)); // Sort by profit
       setProductSalesSummary(processedProductSales);
-      // console.log("--- DETALHADOS: Vendas por Produto:", processedProductSales.slice(0,3));
+      // console.log("--- DETALHADOS: Vendas por Produto (primeiros 3):", processedProductSales.slice(0,3));
 
       // Aggregate Daily Sales
-      const dailyAgg: { [key: string]: { totalRevenue: number, totalCost: number, totalProfit: number } } = {};
+      const dailyAgg: { [key: string]: { totalRevenue: number, totalCost: number } } = {};
       processedDetailedSales.forEach(ds => {
         const dayKey = format(ds.date, "yyyy-MM-dd");
         if (!dailyAgg[dayKey]) {
-          dailyAgg[dayKey] = { totalRevenue: 0, totalCost: 0, totalProfit: 0 };
+          dailyAgg[dayKey] = { totalRevenue: 0, totalCost: 0 };
         }
         dailyAgg[dayKey].totalRevenue += ds.netRevenue;
         dailyAgg[dayKey].totalCost += ds.totalCost || 0;
-        dailyAgg[dayKey].totalProfit += ds.profit || 0;
       });
       const processedDailySales: DatePeriodSaleReport[] = Object.entries(dailyAgg).map(([dayKey, data]) => ({
         period: format(parseISO(dayKey + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR }),
         sortableDate: dayKey,
-        ...data
+        totalRevenue: data.totalRevenue,
+        totalCost: data.totalCost,
+        totalProfit: data.totalRevenue - data.totalCost, // Lucro = Receita - Custo
       })).sort((a,b) => b.sortableDate.localeCompare(a.sortableDate));
       setDailySalesSummary(processedDailySales);
-      // console.log("--- DETALHADOS: Vendas Diárias:", processedDailySales.slice(0,3));
+      // console.log("--- DETALHADOS: Vendas Diárias (primeiros 3):", processedDailySales.slice(0,3));
 
 
       // Aggregate Monthly Sales
-      const monthlyAgg: { [key: string]: { totalRevenue: number, totalCost: number, totalProfit: number } } = {};
+      const monthlyAgg: { [key: string]: { totalRevenue: number, totalCost: number } } = {};
       processedDetailedSales.forEach(ds => {
         const monthYearKey = format(ds.date, "yyyy-MM");
         if (!monthlyAgg[monthYearKey]) {
-          monthlyAgg[monthYearKey] = { totalRevenue: 0, totalCost: 0, totalProfit: 0 };
+          monthlyAgg[monthYearKey] = { totalRevenue: 0, totalCost: 0 };
         }
         monthlyAgg[monthYearKey].totalRevenue += ds.netRevenue;
         monthlyAgg[monthYearKey].totalCost += ds.totalCost || 0;
-        monthlyAgg[monthYearKey].totalProfit += ds.profit || 0;
       });
       const processedMonthlySales: DatePeriodSaleReport[] = Object.entries(monthlyAgg).map(([monthYearKey, data]) => ({
         period: format(parseISO(monthYearKey + '-01T00:00:00'), "MMM/yy", { locale: ptBR }),
         sortableDate: monthYearKey,
-        ...data
+        totalRevenue: data.totalRevenue,
+        totalCost: data.totalCost,
+        totalProfit: data.totalRevenue - data.totalCost, // Lucro = Receita - Custo
       })).sort((a,b) => b.sortableDate.localeCompare(a.sortableDate));
       setMonthlySalesSummary(processedMonthlySales);
-      // console.log("--- DETALHADOS: Vendas Mensais:", processedMonthlySales.slice(0,3));
+      // console.log("--- DETALHADOS: Vendas Mensais (primeiros 3):", processedMonthlySales.slice(0,3));
 
     } catch (error) {
-      console.error("--- DETALHADOS: Falha ao carregar dados do relatório detalhado:", error);
+      // console.error("--- DETALHADOS: Falha ao carregar dados do relatório detalhado:", error);
       toast({ title: "Erro ao Gerar Relatório Detalhado", description: "Não foi possível carregar os dados.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -220,7 +232,7 @@ export default function RelatoriosDetalhadosPage() {
                 </TableHeader>
                 <TableBody>
                   {data.map((row, index) => (
-                    <TableRow key={index}>
+                    <TableRow key={index} className={ (row as DetailedSaleItem)?.costCalculated === false ? "bg-destructive/5 hover:bg-destructive/10" : ""}>
                       {columns.map(col => <TableCell key={col.header} className={col.className}>{col.accessor(row)}</TableCell>)}
                     </TableRow>
                   ))}
@@ -255,13 +267,14 @@ export default function RelatoriosDetalhadosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80 mt-1">
-            Análise granular de vendas, custos e lucratividade. Certifique-se que as <strong className="text-primary-foreground">Entradas de estoque</strong> estão registradas com <strong className="text-primary-foreground">Custos Unitários corretos (&gt;0)</strong> e <strong className="text-primary-foreground">Datas anteriores ou iguais às vendas</strong> para precisão.
+            Análise granular de vendas, custos e lucratividade. O Lucro é: <strong className="text-primary-foreground">Receita (Vendas) MENOS Custo (Entradas)</strong>. <br/>
+            Certifique-se que as <strong className="text-primary-foreground">Entradas de estoque</strong> estão registradas com <strong className="text-primary-foreground">Custos Unitários corretos (&gt;0)</strong> e <strong className="text-primary-foreground">Datas anteriores ou iguais às vendas</strong> para precisão.
           </CardDescription>
            {costCalculationWarning && isMounted && (
             <div className="mt-3 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-sm text-destructive-foreground flex items-start gap-2">
                 <AlertTriangle size={30} className="text-destructive flex-shrink-0" />
                 <div>
-                    <strong className="font-semibold">Atenção ao Cálculo de Custo:</strong> Para algumas vendas, o custo não pôde ser determinado. Isso pode ocorrer se não houver um registro de 'Entrada' para o produto com 'Custo Unitário' maior que zero e 'Data da Entrada' anterior ou igual à data da venda. Verifique seus lançamentos para garantir a precisão dos relatórios de lucratividade. Linhas afetadas terão "N/D" (Não Disponível) nas colunas de custo e lucro.
+                    <strong className="font-semibold">Atenção ao Cálculo de Custo:</strong> Para algumas vendas, o custo não pôde ser determinado (marcado como "N/D"). Isso ocorre se não houver um registro de 'Entrada' para o produto com 'Custo Unitário' maior que zero e 'Data da Entrada' anterior ou igual à data da venda. Verifique seus lançamentos para garantir a precisão dos relatórios de lucratividade.
                 </div>
             </div>
             )}
@@ -287,7 +300,7 @@ export default function RelatoriosDetalhadosPage() {
         { header: "Receita Total (R$)", accessor: (row: CustomerSalesReport) => renderValue(row.totalRevenue), className: "text-right" },
         { header: "Custo Total (R$)", accessor: (row: CustomerSalesReport) => renderValue(row.totalCost), className: "text-right" },
         { header: "Lucro Total (R$)", accessor: (row: CustomerSalesReport) => <span className={`font-semibold ${row.totalProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.totalProfit)}</span>, className: "text-right" },
-      ], "Clientes ordenados pelo maior lucro.", Users)}
+      ], "Clientes ordenados pelo maior lucro. Lucro = Receita Total - Custo Total.", Users)}
 
       {renderTable("Vendas por Produto", "Resumo de vendas, custos e lucros agrupados por produto.", productSalesSummary, [
         { header: "Produto", accessor: (row: ProductSalesReport) => row.productName },
@@ -296,21 +309,21 @@ export default function RelatoriosDetalhadosPage() {
         { header: "Custo Total (R$)", accessor: (row: ProductSalesReport) => renderValue(row.totalCost), className: "text-right" },
         { header: "Lucro Total (R$)", accessor: (row: ProductSalesReport) => <span className={`font-semibold ${row.totalProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.totalProfit)}</span>, className: "text-right" },
         { header: "Margem Média (%)", accessor: (row: ProductSalesReport) => <span className={`${row.avgProfitMargin === undefined ? '' : row.avgProfitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.avgProfitMargin, false, 1)}%</span>, className: "text-right" },
-      ], "Produtos ordenados pelo maior lucro.", Package)}
+      ], "Produtos ordenados pelo maior lucro. Lucro = Receita Total - Custo Total.", Package)}
 
       {renderTable("Vendas Diárias", "Resumo de vendas, custos e lucros agrupados por dia.", dailySalesSummary, [
         { header: "Data", accessor: (row: DatePeriodSaleReport) => row.period },
         { header: "Receita Total (R$)", accessor: (row: DatePeriodSaleReport) => renderValue(row.totalRevenue), className: "text-right" },
         { header: "Custo Total (R$)", accessor: (row: DatePeriodSaleReport) => renderValue(row.totalCost), className: "text-right" },
         { header: "Lucro Total (R$)", accessor: (row: DatePeriodSaleReport) => <span className={`font-semibold ${row.totalProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.totalProfit)}</span>, className: "text-right" },
-      ], "Vendas diárias ordenadas da mais recente para a mais antiga.", CalendarDays)}
+      ], "Vendas diárias ordenadas da mais recente para a mais antiga. Lucro = Receita Total - Custo Total.", CalendarDays)}
 
       {renderTable("Vendas Mensais", "Resumo de vendas, custos e lucros agrupados por mês.", monthlySalesSummary, [
         { header: "Mês/Ano", accessor: (row: DatePeriodSaleReport) => row.period },
         { header: "Receita Total (R$)", accessor: (row: DatePeriodSaleReport) => renderValue(row.totalRevenue), className: "text-right" },
         { header: "Custo Total (R$)", accessor: (row: DatePeriodSaleReport) => renderValue(row.totalCost), className: "text-right" },
         { header: "Lucro Total (R$)", accessor: (row: DatePeriodSaleReport) => <span className={`font-semibold ${row.totalProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.totalProfit)}</span>, className: "text-right" },
-      ], "Vendas mensais ordenadas da mais recente para a mais antiga.", CalendarDays)}
+      ], "Vendas mensais ordenadas da mais recente para a mais antiga. Lucro = Receita Total - Custo Total.", CalendarDays)}
 
     </div>
   );

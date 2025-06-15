@@ -233,13 +233,12 @@ export default function RelatoriosPage() {
 
         if (relevantEntries.length > 0) {
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
-          // console.log(`--- RELATORIOS (SUMÁRIO): [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}: Custo Unit. ${latestRelevantEntry.unitPrice}`);
+          // console.log(`--- RELATORIOS (SUMÁRIO): [VENDA ID: ${sale.id}] Última entrada relevante SELECIONADA para ${analysis.productName}: Custo Unit. ${latestRelevantEntry.unitPrice}, Data Entrada: ${latestRelevantEntry.date.toISOString()}`);
           
           const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
           analysis.totalCost += costForThisSaleItem;
-          // analysis.costCalculableSalesCount += 1; // Removed this specific counter as the column is removed
         } else {
-          // console.warn(`--- RELATORIOS (SUMÁRIO): [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida encontrada para ${analysis.productName} para a venda ${sale.id}. Custo para esta venda será 0.`);
+          // console.warn(`--- RELATORIOS (SUMÁRIO): [VENDA ID: ${sale.id}] Nenhuma entrada de custo válida encontrada para ${analysis.productName} (Produto ID: ${sale.productId}) para a venda ${sale.id} (Data Venda: ${sale.date.toISOString()}). Custo para esta venda será 0. Verifique se há entradas com Custo Unitário > 0 e Data de Entrada <= Data da Venda.`);
           costCouldNotBeCalculatedForAllSalesOfAProduct = true;
         }
       });
@@ -275,12 +274,12 @@ export default function RelatoriosPage() {
       setSummaryMetrics({
         totalRevenue,
         totalCostOfGoodsSold: overallTotalCostOfGoodsSold,
-        totalProfitAllProducts: overallTotalProfit,
+        totalProfitAllProducts: totalRevenue - overallTotalCostOfGoodsSold, 
         activeCustomers: uniqueCustomers.size,
         lowStockItemsCount,
         totalUnitsSold: overallTotalUnitsSold,
       });
-      // console.log("--- RELATORIOS (SUMÁRIO): Métricas de Resumo Finais:", {totalRevenue, overallTotalCostOfGoodsSold, overallTotalProfit, uniqueCustomersSize: uniqueCustomers.size, lowStockItemsCount, overallTotalUnitsSold});
+      // console.log("--- RELATORIOS (SUMÁRIO): Métricas de Resumo Finais:", {totalRevenue, overallTotalCostOfGoodsSold, overallTotalProfit: totalRevenue - overallTotalCostOfGoodsSold, uniqueCustomersSize: uniqueCustomers.size, lowStockItemsCount, overallTotalUnitsSold});
 
     } catch (error) {
       // console.error("--- RELATORIOS (SUMÁRIO): Falha ao carregar dados do relatório:", error);
@@ -335,8 +334,7 @@ export default function RelatoriosPage() {
             </CardTitle>
           </div>
            <div className="text-primary-foreground/80 mt-1">
-            Acompanhe as métricas chave do seu negócio.
-            O <strong className="text-primary-foreground">Lucro Total Estimado</strong> é: <strong className="text-primary-foreground">Receita Total (Vendas) - Custo Total Estimado (dos Custos Unitários nas Entradas)</strong>.
+            Acompanhe as métricas chave do seu negócio. O <strong className="text-primary-foreground">Lucro Total Estimado</strong> é calculado como: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Total Estimado (dos Custos Unitários registrados nas Entradas)</strong>.
           </div>
         </CardHeader>
         <CardContent className="p-6">
@@ -355,7 +353,7 @@ export default function RelatoriosPage() {
                 </Card>
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Custo Total (Estimado)</CardTitle>
+                        <CardTitle className="text-sm font-medium">Custo Total Estimado (CMV)</CardTitle>
                         <Receipt className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -367,14 +365,14 @@ export default function RelatoriosPage() {
                 </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Lucro Total (Estimado)</CardTitle>
+                        <CardTitle className="text-sm font-medium">Lucro Total Estimado</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
                             {isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}
                         </div>
-                        <p className="text-xs text-muted-foreground">Estimativa: Receita Total - Custo Total Estimado.</p>
+                        <p className="text-xs text-muted-foreground">Cálculo: Receita Total - Custo Total Estimado.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -518,13 +516,13 @@ export default function RelatoriosPage() {
                             <FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto
                         </CardTitle>
                         <CardDescription className="text-primary-foreground/80">
-                            Detalhes de receita, custo, lucro e margem por produto. Lucro = <strong className="text-primary-foreground">Receita (Vendas) - Custo Estimado (dos Custos Unitários das Entradas)</strong>.
+                            Detalhes de receita, custo e lucro por produto. O Lucro é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Estimado Total (dos Custos Unitários registrados nas Entradas)</strong>.
                         </CardDescription>
                     </div>
                    <div className="mt-4 text-sm text-destructive-foreground/90 border-2 border-dashed border-destructive/50 p-4 rounded-md bg-destructive/5">
                         <strong className="block mb-2 text-md text-destructive font-semibold flex items-center"><Info size={18} className="mr-2"/>PARA CÁLCULO CORRETO DO CUSTO E LUCRO - LEIA ATENTAMENTE:</strong> 
                         <p className="mb-1 text-xs">O "Custo Estimado" é fundamental e <strong className="text-destructive">DEPENDE DIRETAMENTE DOS DADOS QUE VOCÊ INSERE</strong> na tela de <strong className="text-destructive">'Entradas'</strong> de estoque.</p>
-                        <p className="mb-2 text-xs">Se o "Custo Estimado" estiver <strong className="text-destructive">R$ 0,00</strong>, significa que uma ou mais das três condições abaixo <strong className="text-destructive">NÃO foram atendidas</strong> para aquelas vendas. Verifique seus lançamentos de 'Entrada'.</p>
+                        <p className="mb-2 text-xs">Se o "Custo Estimado" estiver <strong className="text-destructive">R$ 0,00</strong> para um produto, significa que uma ou mais das três condições abaixo <strong className="text-destructive">NÃO foram atendidas</strong> para as vendas daquele produto. Verifique seus lançamentos de 'Entrada'.</p>
                         <ol className="list-decimal list-inside text-xs space-y-1.5 pl-2">
                             <li><strong className="text-destructive">(PRODUTO CORRETO) REGISTRE ENTRADAS PARA CADA PRODUTO VENDIDO:</strong> Para que o custo de um produto vendido seja calculado, deve existir um registro de 'Entrada' para <strong className="underline">ESSE MESMO PRODUTO</strong> no sistema.</li>
                             <li><strong className="text-destructive">(CUSTO UNITÁRIO > 0) CUSTO UNITÁRIO NA ENTRADA DEVE SER > 0:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' <strong className="underline">DEVE SER O PREÇO QUE VOCÊ PAGOU PELO PRODUTO</strong>. Este valor <strong className="underline">NÃO PODE SER ZERO</strong>. Se for zero, essa entrada não será usada para calcular o custo.</li>
@@ -628,5 +626,3 @@ export default function RelatoriosPage() {
   );
 }
     
-
-
