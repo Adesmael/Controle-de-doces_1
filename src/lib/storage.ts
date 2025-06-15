@@ -1,12 +1,15 @@
 
-import type { Product, Entry, Sale } from './types';
+import type { Product, Entry, Sale, Client, Supplier } from './types';
 import { initialProductsData } from './products';
 
 const DB_NAME = 'ControleDocesDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented version due to new object stores
 const STORE_PRODUCTS = 'products';
 const STORE_ENTRIES = 'entries';
 const STORE_SALES = 'sales';
+const STORE_CLIENTS = 'clients';
+const STORE_SUPPLIERS = 'suppliers';
+
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -35,6 +38,16 @@ const openDB = (): Promise<IDBDatabase> => {
         saleStore.createIndex('date', 'date', { unique: false });
         saleStore.createIndex('productId', 'productId', {unique: false});
       }
+      if (!db.objectStoreNames.contains(STORE_CLIENTS)) {
+        const clientStore = db.createObjectStore(STORE_CLIENTS, { keyPath: 'id' });
+        clientStore.createIndex('companyName', 'companyName', { unique: false });
+        clientStore.createIndex('registrationDate', 'registrationDate', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_SUPPLIERS)) {
+        const supplierStore = db.createObjectStore(STORE_SUPPLIERS, { keyPath: 'id' });
+        supplierStore.createIndex('supplierName', 'supplierName', { unique: false });
+        supplierStore.createIndex('registrationDate', 'registrationDate', { unique: false });
+      }
     };
 
     request.onsuccess = (event) => {
@@ -49,7 +62,7 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onerror = (event) => {
       console.error("IndexedDB error:", (event.target as IDBOpenDBRequest).error);
-      dbPromise = null; 
+      dbPromise = null;
       reject(new Error("Error opening IndexedDB: " + (event.target as IDBOpenDBRequest).error?.name));
     };
   });
@@ -133,6 +146,27 @@ export const getSales = async (): Promise<Sale[]> => {
 export const addSale = (sale: Sale): Promise<IDBValidKey> => add<Sale>(STORE_SALES, sale);
 export const deleteSale = (id: string): Promise<void> => deleteItem(STORE_SALES, id);
 
+// Client Management functions
+export const getClients = async (): Promise<Client[]> => {
+    const clients = await getAll<Client>(STORE_CLIENTS);
+    return clients.map(client => ({ ...client, registrationDate: new Date(client.registrationDate) })).sort((a,b) => a.companyName.localeCompare(b.companyName));
+};
+export const getClientById = (id: string): Promise<Client | undefined> => getById<Client>(STORE_CLIENTS, id);
+export const addClient = (client: Client): Promise<IDBValidKey> => add<Client>(STORE_CLIENTS, client);
+export const updateClient = (client: Client): Promise<IDBValidKey> => put<Client>(STORE_CLIENTS, client);
+export const deleteClient = (id: string): Promise<void> => deleteItem(STORE_CLIENTS, id);
+
+// Supplier Management functions
+export const getSuppliers = async (): Promise<Supplier[]> => {
+    const suppliers = await getAll<Supplier>(STORE_SUPPLIERS);
+    return suppliers.map(supplier => ({ ...supplier, registrationDate: new Date(supplier.registrationDate) })).sort((a,b) => a.supplierName.localeCompare(b.supplierName));
+};
+export const getSupplierById = (id: string): Promise<Supplier | undefined> => getById<Supplier>(STORE_SUPPLIERS, id);
+export const addSupplier = (supplier: Supplier): Promise<IDBValidKey> => add<Supplier>(STORE_SUPPLIERS, supplier);
+export const updateSupplier = (supplier: Supplier): Promise<IDBValidKey> => put<Supplier>(STORE_SUPPLIERS, supplier);
+export const deleteSupplier = (id: string): Promise<void> => deleteItem(STORE_SUPPLIERS, id);
+
+
 // Function to initialize products if DB is empty
 export const initializeProductsDB = async (): Promise<void> => {
   try {
@@ -140,7 +174,7 @@ export const initializeProductsDB = async (): Promise<void> => {
     if (productsFromDB.length === 0) {
       const store = await getStore(STORE_PRODUCTS, 'readwrite');
       const transaction = store.transaction;
-      
+
       await new Promise<void>((resolveTransaction, rejectTransaction) => {
         transaction.oncomplete = () => resolveTransaction();
         transaction.onerror = (event) => {
@@ -166,7 +200,7 @@ export const initializeProductsDB = async (): Promise<void> => {
             }
           });
         });
-        
+
         Promise.all(addPromises)
         .then(() => {
             // On transaction complete is handled above
@@ -191,19 +225,23 @@ export interface BackupData {
   products: Product[];
   entries: Entry[];
   sales: Sale[];
+  clients?: Client[]; // Optional for backward compatibility
+  suppliers?: Supplier[]; // Optional for backward compatibility
 }
 
 export const getBackupData = async (): Promise<BackupData> => {
-  const [products, entries, sales] = await Promise.all([
+  const [products, entries, sales, clients, suppliers] = await Promise.all([
     getProducts(),
     getEntries(),
     getSales(),
+    getClients(),
+    getSuppliers(),
   ]);
-  return { products, entries, sales };
+  return { products, entries, sales, clients, suppliers };
 };
 
 export const restoreBackupData = async (data: BackupData): Promise<void> => {
-  const db = await openDB(); 
+  const db = await openDB();
 
   const clearStore = async (storeName: string) => {
     const transaction = db.transaction(storeName, 'readwrite');
@@ -212,21 +250,25 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => resolve(); 
+      transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
   };
 
-  const populateStore = async <T extends { id: string }>(storeName: string, items: T[]) => {
+  const populateStore = async <T extends { id: string }>(storeName: string, items: T[] | undefined) => {
+    if (!items) return; // Skip if data for this store is not in backup
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);
     for (const item of items) {
       let itemToAdd = item;
-      if ((storeName === STORE_ENTRIES || storeName === STORE_SALES) && (item as any).date && typeof (item as any).date === 'string') {
+      if ((storeName === STORE_ENTRIES || storeName === STORE_SALES || storeName === STORE_CLIENTS || storeName === STORE_SUPPLIERS) && (item as any).date && typeof (item as any).date === 'string') {
         itemToAdd = { ...item, date: new Date((item as any).date) };
       }
+       if ((storeName === STORE_CLIENTS || storeName === STORE_SUPPLIERS) && (item as any).registrationDate && typeof (item as any).registrationDate === 'string') {
+        itemToAdd = { ...item, registrationDate: new Date((item as any).registrationDate) };
+      }
       const request = store.add(itemToAdd);
-      await new Promise<void>((resolve, reject) => { 
+      await new Promise<void>((resolve, reject) => {
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
       });
@@ -240,21 +282,30 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
   try {
     await clearStore(STORE_PRODUCTS);
     await populateStore(STORE_PRODUCTS, data.products);
-    
+
     await clearStore(STORE_ENTRIES);
     await populateStore(STORE_ENTRIES, data.entries);
 
     await clearStore(STORE_SALES);
     await populateStore(STORE_SALES, data.sales);
 
+    if (data.clients) {
+      await clearStore(STORE_CLIENTS);
+      await populateStore(STORE_CLIENTS, data.clients);
+    }
+    if (data.suppliers) {
+      await clearStore(STORE_SUPPLIERS);
+      await populateStore(STORE_SUPPLIERS, data.suppliers);
+    }
+
   } catch (error) {
     console.error("Error restoring data to IndexedDB", error);
-    throw error; 
+    throw error;
   }
 };
 
 if (typeof window !== 'undefined' && window.indexedDB) {
-    openDB().then(async () => { 
+    openDB().then(async () => {
       try {
         await initializeProductsDB();
       } catch (error) {
@@ -264,8 +315,3 @@ if (typeof window !== 'undefined' && window.indexedDB) {
         console.error("Error opening DB for initialization:", error);
     });
 }
-
-
-
-
-    

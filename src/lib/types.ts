@@ -47,54 +47,54 @@ export interface Sale extends SaleFormValues {
 
 export interface ProductAnalysisData {
   productId: string;
-  productName: string;        
-  unitsSold: number;          
-  totalRevenue: number;       
-  totalCost: number;          
-  totalSalesRecords: number;  
+  productName: string;
+  unitsSold: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalSalesRecords: number;
 }
 
 export interface SalesProfitData extends ProductAnalysisData {
-  totalProfit: number;     
-  profitMargin: number;    
+  totalProfit: number;
+  profitMargin: number;
 }
 
 
-export interface DatePeriodSaleReport { 
-  period: string; 
+export interface DatePeriodSaleReport {
+  period: string;
   totalRevenue: number;
-  totalCost: number; // Added for consistency if needed in future summary tables
-  totalProfit: number; // Added for consistency
-  sortableDate: string; // Keeps original date for sorting, before formatting period
+  totalCost: number;
+  totalProfit: number;
+  sortableDate: string;
 }
-    
-// Types below were primarily for the now-removed detailed report page.
-// They can be removed if no longer used by the main report page after its refactoring.
-// export interface DetailedSaleItem extends Sale {
-//   netRevenue: number;
-//   unitCost?: number; 
-//   totalCost?: number; 
-//   profit?: number; 
-//   profitMargin?: number; 
-//   costCalculated: boolean; 
-// }
 
-// export interface CustomerSalesReport {
-//   customerName: string;
-//   totalRevenue: number;
-//   totalCost: number;
-//   totalProfit: number;
-//   totalUnitsSold: number;
-// }
+// Client Types
+export interface ClientFormValues {
+  registrationDate: Date;
+  companyName: string; // Razão Social
+  tradingName: string; // Fantasia
+  category: string;
+  address: string;
+  neighborhood: string;
+  city: string;
+  phone: string;
+}
 
-// export interface ProductSalesReport {
-//   productId: string;
-//   productName: string;
-//   totalUnitsSold: number;
-//   totalRevenue: number;
-//   totalCost: number;
-//   totalProfit: number;
-//   avgProfitMargin?: number; 
-// }
+export interface Client extends ClientFormValues {
+  id: string;
+}
 
+// Supplier Types
+export interface SupplierFormValues {
+  registrationDate: Date;
+  supplierName: string; // Fornecedor
+  address: string;
+  neighborhood: string;
+  city: string;
+  phone: string;
+  suppliedProducts: string; // Produto (what they supply) - can be a comma-separated list or description
+}
 
+export interface Supplier extends SupplierFormValues {
+  id: string;
+}
