@@ -33,7 +33,7 @@ const Header = () => {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const DesktopNav = () => (
-    <nav className="flex items-center space-x-1">
+    <nav className="flex items-center space-x-1 bg-primary"> {/* Ensures nav bar itself has primary background */}
       {navLinks.map(link => {
         const Icon = link.icon;
         // Apply flip to Saida icon if that's the one
@@ -98,4 +98,3 @@ const Header = () => {
 };
 
 export default Header;
-
