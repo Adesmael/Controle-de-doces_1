@@ -66,7 +66,7 @@ const Header = () => {
         <SheetHeader className="p-4 border-b">
           <SheetTitle className="flex items-center gap-2 text-xl font-bold text-primary">
             <Banana size={28} />
-            Controle de Doces
+            <span>Controle de Doces</span>
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col p-4 space-y-2">
@@ -94,7 +94,7 @@ const Header = () => {
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
             <Banana size={32} className="mr-1"/> {/* Default to desktop size for SSR */}
-            Controle de Doces
+            <span>Controle de Doces</span>
           </Link>
           <DesktopNav /> {/* Always render DesktopNav for SSR consistency */}
         </div>
@@ -108,7 +108,7 @@ const Header = () => {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
           <Banana size={isMobile ? 28 : 32} className="mr-1"/>
-          Controle de Doces
+          <span>Controle de Doces</span>
         </Link>
         {isMobile ? <MobileNav /> : <DesktopNav />}
       </div>
