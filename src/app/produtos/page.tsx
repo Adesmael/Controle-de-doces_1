@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Package, PlusCircle, DollarSign, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle, Loader2 } from "lucide-react";
+import { Package, PlusCircle, Box, Image as ImageIcon, Lightbulb, Edit3, Trash2, Save, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/lib/types";
 import Image from "next/image";
@@ -49,9 +49,6 @@ const productFormSchema = z.object({
   description: z.string().max(500, {
     message: "A descrição não pode ter mais de 500 caracteres.",
   }).optional(),
-  price: z.coerce.number().positive({
-    message: "O preço deve ser um número positivo.",
-  }).transform(val => parseFloat(val.toFixed(2))),
   stock: z.coerce.number().int().nonnegative({
     message: "O estoque deve ser um número inteiro não negativo.",
   }),
@@ -98,7 +95,6 @@ export default function ProdutosPage() {
       name: "",
       category: "",
       description: "",
-      price: 0,
       stock: 0,
       imageUrl: "",
       dataAiHint: "",
@@ -110,7 +106,6 @@ export default function ProdutosPage() {
       name: "",
       category: "",
       description: "",
-      price: 0,
       stock: 0,
       imageUrl: "",
       dataAiHint: "",
@@ -123,8 +118,8 @@ export default function ProdutosPage() {
     try {
       if (editingProduct) {
         const updatedProductData: Product = {
-          ...editingProduct,
-          ...data,
+          ...editingProduct, // This carries over the existing price
+          ...data, // Form data (name, category, description, stock, imageUrl, dataAiHint)
           imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
           dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
         };
@@ -136,7 +131,8 @@ export default function ProdutosPage() {
       } else {
         const newProductData: Product = {
             id: String(Date.now()),
-            ...data,
+            ...data, // Form data (name, category, description, stock, imageUrl, dataAiHint)
+            price: 0, // Default selling price for new products
             imageUrl: data.imageUrl || `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
             dataAiHint: data.dataAiHint || data.name.split(" ").slice(0,2).join(" ").toLowerCase(),
         };
@@ -162,7 +158,6 @@ export default function ProdutosPage() {
       name: product.name,
       category: product.category,
       description: product.description,
-      price: product.price,
       stock: product.stock,
       imageUrl: product.imageUrl.startsWith('https://placehold.co') && product.imageUrl.includes(encodeURIComponent(product.name)) ? '' : product.imageUrl,
       dataAiHint: product.dataAiHint,
@@ -212,7 +207,7 @@ export default function ProdutosPage() {
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            {editingProduct ? `Modifique os dados do produto ${editingProduct.name}.` : "Adicione e gerencie os produtos do seu catálogo."}
+            {editingProduct ? `Modifique os dados do produto ${editingProduct.name}. O preço de venda é gerenciado na tela de Saída.` : "Adicione e gerencie os produtos do seu catálogo. O preço de venda é definido na tela de Saída."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -257,34 +252,21 @@ export default function ProdutosPage() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Preço Unitário (R$)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="15.99" {...field} step="0.01" min="0.01"/>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="stock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-primary-foreground/90 flex items-center"><Box size={16} className="mr-2"/>Quantidade em Estoque</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="100" {...field} step="1" min="0"/>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              
+              <FormField
+                control={form.control}
+                name="stock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-primary-foreground/90 flex items-center"><Box size={16} className="mr-2"/>Quantidade em Estoque</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="100" {...field} step="1" min="0"/>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
               <FormField
                   control={form.control}
                   name="imageUrl"
@@ -335,7 +317,7 @@ export default function ProdutosPage() {
             <CardHeader>
                 <CardTitle className="text-xl font-headline text-primary-foreground">Produtos Cadastrados ({products.length})</CardTitle>
                  <CardDescription className="text-primary-foreground/80">
-                    Visualize e gerencie os produtos atualmente no seu catálogo.
+                    Visualize e gerencie os produtos atualmente no seu catálogo. O preço de venda é definido na tela de Saída.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -356,7 +338,6 @@ export default function ProdutosPage() {
                             <p className="text-sm text-muted-foreground mb-1">{product.category}</p>
                             {product.description && <p className="text-xs text-muted-foreground/80 mb-2 line-clamp-2">{product.description}</p>}
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                                <span className="font-medium">Preço: R$ {product.price.toFixed(2)}</span>
                                 <span className="text-muted-foreground">Estoque: {product.stock}</span>
                             </div>
                         </div>
