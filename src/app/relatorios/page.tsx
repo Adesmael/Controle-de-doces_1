@@ -199,16 +199,13 @@ export default function RelatoriosPage() {
     
     let totalCostOfAcquisitionsForSummaryCard = 0;
     if (selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE) {
-        // If no filters, sum all entries
         totalCostOfAcquisitionsForSummaryCard = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
     } else {
-        // If filters are active, sum entries for products present in filteredSales
         const productIdsInFilteredSales = new Set(allSalesToProcess.map(sale => sale.productId));
         if (productIdsInFilteredSales.size > 0) {
             const relevantEntriesForCostCard = rawEntries.filter(entry => productIdsInFilteredSales.has(entry.productId));
             totalCostOfAcquisitionsForSummaryCard = relevantEntriesForCostCard.reduce((sum, entry) => sum + entry.totalValue, 0);
         } else {
-             // No sales match the filter, so cost related to those non-existent sales is 0
             totalCostOfAcquisitionsForSummaryCard = 0;
         }
     }
@@ -494,9 +491,7 @@ export default function RelatoriosPage() {
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto</CardTitle>
                         <CardDescription className="text-primary-foreground/80">
-                            Detalhes de receita, custo e lucro por produto {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.
-                            <br/>O "Custo Total (R$)" nesta tabela é a soma de todas as <strong className="text-primary-foreground">'Entradas'</strong> registradas para aquele produto.
-                            <br/>"Lucro Estimado Total (R$)" = Receita Total do produto - Custo Total de Entradas do produto.
+                            {/* Content removed as per user request */}
                         </CardDescription>
                     </div>
                 </CardHeader>
@@ -575,7 +570,3 @@ export default function RelatoriosPage() {
     </div>
   );
 }
-
-    
-
-    
