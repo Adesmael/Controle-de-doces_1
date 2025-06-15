@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, TrendingDown, Loader2, CalendarDays, Receipt, ShoppingBag, AlertTriangle, Filter, Warehouse } from "lucide-react";
+import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, Loader2, CalendarDays, Receipt, ShoppingBag, AlertTriangle, Filter, Warehouse } from "lucide-react";
 import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
@@ -43,7 +43,7 @@ interface StockLevelData {
 
 interface SummaryMetrics {
   totalRevenue: number;
-  totalCostOfAllEntries: number;
+  totalCostOfAcquisitions: number; // Renamed from totalCostOfAllEntries
   totalProfitAllProducts: number;
   activeCustomers: number;
   lowStockItemsCount: number;
@@ -146,8 +146,8 @@ export default function RelatoriosPage() {
         topProductsChartData: [],
         stockLevels: [],
         salesProfitAnalysisData: [],
-        summaryMetrics: { totalRevenue: 0, totalCostOfAllEntries: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: 0, totalUnitsSold: 0, numberOfSalesProcessed: 0 },
-        hasZeroCostEntries: false,
+        summaryMetrics: { totalRevenue: 0, totalCostOfAcquisitions: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: 0, totalUnitsSold: 0, numberOfSalesProcessed: 0 },
+        hasZeroCostEntriesInTable: false,
       };
     }
 
@@ -197,19 +197,27 @@ export default function RelatoriosPage() {
     const uniqueCustomers = new Set(allSalesToProcess.map(sale => sale.customer.toLowerCase().trim()));
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
     
-    // Calculate total cost of all entries (not filtered by sales)
-    const totalCostOfAllEntriesSystemWide = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
+    let totalCostOfAcquisitionsForSummaryCard = 0;
+    if (selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE) {
+      totalCostOfAcquisitionsForSummaryCard = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
+    } else {
+      const productIdsInFilteredSales = new Set(allSalesToProcess.map(sale => sale.productId));
+      if (productIdsInFilteredSales.size > 0) {
+        const relevantEntriesForCostCard = rawEntries.filter(entry => productIdsInFilteredSales.has(entry.productId));
+        totalCostOfAcquisitionsForSummaryCard = relevantEntriesForCostCard.reduce((sum, entry) => sum + entry.totalValue, 0);
+      } else {
+        totalCostOfAcquisitionsForSummaryCard = 0; // No sales means no related products to sum costs for
+      }
+    }
     
-    // Calculate profit for summary card based on filtered sales revenue and system-wide total entry cost
-    const profitForSummaryCard = totalRevenueFromFilteredSales - totalCostOfAllEntriesSystemWide;
+    const profitForSummaryCard = totalRevenueFromFilteredSales - totalCostOfAcquisitionsForSummaryCard;
 
-    // Calculate total cost of entries PER PRODUCT
     const productTotalEntryCosts: Record<string, number> = {};
-    let systemHasZeroCostEntries = false;
+    let systemHasZeroCostEntriesForTable = false;
     rawEntries.forEach(entry => {
       productTotalEntryCosts[entry.productId] = (productTotalEntryCosts[entry.productId] || 0) + entry.totalValue;
-      if (entry.unitPrice === 0) {
-        systemHasZeroCostEntries = true;
+      if (entry.unitPrice === 0 && entry.productId) { // Check productId to ensure it's a valid entry for a product
+        systemHasZeroCostEntriesForTable = true;
       }
     });
     
@@ -233,12 +241,12 @@ export default function RelatoriosPage() {
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
       .filter(analysis => selectedProductFilter !== ALL_FILTER_VALUE ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
       .map(analysis => {
-        const productCostFromEntries = productTotalEntryCosts[analysis.productId] || 0;
-        const totalProfit = analysis.totalRevenue - productCostFromEntries;
+        const productTotalCostFromEntries = productTotalEntryCosts[analysis.productId] || 0;
+        const totalProfit = analysis.totalRevenue - productTotalCostFromEntries;
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
         return { 
             ...analysis, 
-            totalCost: productCostFromEntries, // This is now total entry cost for this product
+            totalCost: productTotalCostFromEntries,
             totalProfit, 
             profitMargin: parseFloat(profitMargin.toFixed(2)) 
         };
@@ -253,17 +261,17 @@ export default function RelatoriosPage() {
       salesProfitAnalysisData: processedProductProfitData,
       summaryMetrics: {
         totalRevenue: totalRevenueFromFilteredSales,
-        totalCostOfAllEntries: totalCostOfAllEntriesSystemWide,
+        totalCostOfAcquisitions: totalCostOfAcquisitionsForSummaryCard,
         totalProfitAllProducts: profitForSummaryCard,
         activeCustomers: uniqueCustomers.size,
         lowStockItemsCount,
         totalUnitsSold: overallTotalUnitsSold,
         numberOfSalesProcessed: allSalesToProcess.length,
       },
-      hasZeroCostEntries: systemHasZeroCostEntries,
+      hasZeroCostEntriesInTable: systemHasZeroCostEntriesForTable,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedProductFilter]);
+  }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedClient, selectedProductFilter]);
 
 
   const chartLabelFormatter = (value: number) => isMounted && value > 0 ? String(Math.round(value)) : '';
@@ -288,7 +296,7 @@ export default function RelatoriosPage() {
     setSelectedProductFilter(ALL_FILTER_VALUE);
   };
 
-  const shouldShowZeroCostEntryAlert = isMounted && !isLoading && processedData.hasZeroCostEntries;
+  const shouldShowZeroCostEntryAlert = isMounted && !isLoading && processedData.hasZeroCostEntriesInTable;
 
 
   if (isLoading && !isMounted) { 
@@ -304,15 +312,14 @@ export default function RelatoriosPage() {
             <CardTitle className="text-2xl font-headline text-primary-foreground">Painel de Relatórios Gerenciais</CardTitle>
           </div>
            <div className="text-primary-foreground/80 mt-1">
-            Acompanhe as métricas chave do seu negócio. O <strong className="text-primary-foreground">Lucro Total Estimado</strong> é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Total (de todas as Entradas)</strong>.
-            <br/>A tabela "Análise de Lucratividade por Produto" agora mostra o "Custo Total" como a soma de todas as entradas para aquele produto.
+            Acompanhe as métricas chave do seu negócio.
            </div>
         </CardHeader>
         <CardContent className="p-6">
             <Card className="mb-6 bg-card/50 shadow">
                 <CardHeader>
                     <CardTitle className="text-lg font-headline flex items-center gap-2"><Filter size={20} className="text-primary"/>Filtros</CardTitle>
-                    <CardDescription>Refine os dados dos relatórios abaixo. O card "Custo Total" não é afetado pelos filtros.</CardDescription>
+                    <CardDescription>Refine os dados dos relatórios abaixo.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1 min-w-[200px]">
@@ -350,35 +357,37 @@ export default function RelatoriosPage() {
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Receita Total (Vendas)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Valor total de todas as vendas (Saídas) registradas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Soma de todas as vendas (Saídas), conforme filtros aplicados.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Custo Total</CardTitle><Warehouse className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
-                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalCostOfAllEntries.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Soma de todos os custos de todas as 'Entradas' já registradas (não afetado por filtros).</p>
+                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalCostOfAcquisitions.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Custo total de aquisição (Entradas). Se filtros ativos, refere-se aos produtos nas vendas filtradas. Senão, total de todas as Entradas.
+                        </p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lucro Total Estimado</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Receita Total (filtrada) - Custo Total (de todas as Entradas, não filtrado).</p>
+                        <p className="text-xs text-muted-foreground">Receita Total (Vendas) - Custo Total (considerando filtros).</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Vendas (Unidades)</CardTitle><ShoppingBag className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-16" /> : isMounted ? processedData.summaryMetrics.totalUnitsSold : <Skeleton className="h-8 w-16" />}</div>
-                        <p className="text-xs text-muted-foreground">Unidades vendidas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Unidades vendidas, conforme filtros aplicados.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-12" /> : isMounted ? processedData.summaryMetrics.activeCustomers : <Skeleton className="h-8 w-12" />}</div>
-                        <p className="text-xs text-muted-foreground">Clientes que compraram {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(baseado no filtro)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Com base nas vendas filtradas.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
@@ -393,13 +402,13 @@ export default function RelatoriosPage() {
              {shouldShowZeroCostEntryAlert && (
                 <Alert variant="destructive" className="mb-6">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Atenção ao Cálculo de Custo na Tabela de Lucratividade por Produto!</AlertTitle>
+                    <AlertTitle>Atenção ao Custo na Tabela de Lucratividade!</AlertTitle>
                     <AlertDescription>
-                        Alguns produtos podem ter seu "Custo Total" (e consequentemente "Lucro Estimado") na tabela abaixo subestimado.
+                        O "Custo Total" de alguns produtos na tabela abaixo pode estar subestimado (e o "Lucro Estimado" superestimado).
                         Isso ocorre se houver registros de 'Entrada' para esses produtos com <strong className="font-semibold text-destructive-foreground">"Custo Unitário" igual a zero</strong>.
                         <br/><strong className="block mt-1">Verifique seus lançamentos de 'Entrada':</strong>
                         <ul className="list-disc pl-5 mt-1 text-xs space-y-0.5">
-                            <li>Certifique-se de que o "Custo Unitário" em todas as 'Entradas' de estoque seja maior que zero para um cálculo preciso do custo do produto na tabela.</li>
+                            <li>Certifique-se de que o "Custo Unitário" em todas as 'Entradas' seja maior que zero para um cálculo preciso do custo do produto na tabela.</li>
                         </ul>
                     </AlertDescription>
                 </Alert>
@@ -524,7 +533,7 @@ export default function RelatoriosPage() {
                             </TableBody>
                             <TableCaption>
                                 "Custo Total (R$)" é a soma de todas as Entradas para o produto. "Lucro Estimado" = Receita - Custo Total de Entradas.
-                                {isMounted && processedData.hasZeroCostEntries && <span className="block mt-1 text-xs text-destructive font-semibold">Atenção: O "Custo Total" de alguns produtos (e seu "Lucro Estimado") pode estar subestimado devido a 'Entradas' com "Custo Unitário" igual a zero.</span>}
+                                {isMounted && processedData.hasZeroCostEntriesInTable && <span className="block mt-1 text-xs text-destructive font-semibold">Atenção: O "Custo Total" de alguns produtos (e seu "Lucro Estimado") pode estar subestimado devido a 'Entradas' com "Custo Unitário" igual a zero.</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -564,3 +573,4 @@ export default function RelatoriosPage() {
   );
 }
 
+    
