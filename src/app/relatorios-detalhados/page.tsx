@@ -229,7 +229,7 @@ export default function RelatoriosDetalhadosPage() {
         </CardHeader>
         <CardContent>
           {isLoading && !isMounted ? (
-            <div className="space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>
+            <div className="space-y-2 py-10"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>
           ) : data.length > 0 && isMounted ? (
             <ScrollArea className="h-[400px] w-full">
               <Table>
@@ -253,7 +253,7 @@ export default function RelatoriosDetalhadosPage() {
                 <Info size={32} className="mb-2"/> <p>Nenhum dado disponível para este relatório.</p>
             </div>
           ) : (
-             <div className="space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>
+             <div className="space-y-2 py-10"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>
           )}
         </CardContent>
       </Card>
@@ -267,7 +267,7 @@ export default function RelatoriosDetalhadosPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="shadow-xl">
-        <CardHeader className="bg-primary/10">
+        <CardHeader className="bg-primary/5">
           <div className="flex items-center gap-3">
             <FileSpreadsheet size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
@@ -338,4 +338,3 @@ export default function RelatoriosDetalhadosPage() {
     </div>
   );
 }
-
