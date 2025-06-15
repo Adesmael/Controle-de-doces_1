@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState, useMemo } from "react";
@@ -116,7 +115,7 @@ export default function RelatoriosPage() {
         setAvailableProducts(prods);
 
       } catch (error) {
-        // console.error("--- RELATORIOS (FILTROS): Falha ao carregar dados iniciais:", error);
+        // console.log("--- RELATORIOS (FILTROS): Falha ao carregar dados iniciais:", error);
         toast({ title: "Erro ao Carregar Dados Base", description: "Não foi possível buscar os dados para os filtros e relatórios.", variant: "destructive" });
       } finally {
         setIsLoading(false);
@@ -138,12 +137,12 @@ export default function RelatoriosPage() {
   }, [rawSales, selectedClient, selectedProduct]);
 
   const processedData = useMemo(() => {
-    if (isLoading || !isMounted || rawProducts.length === 0 && filteredSales.length === 0) { // Avoid processing if loading or no base data
+    if (isLoading || !isMounted || rawProducts.length === 0 && filteredSales.length === 0) { 
       return {
         monthlySales: [],
         dailySales: [],
         topProductsChartData: [],
-        stockLevels: rawProducts.filter(p => p.stock < 10).sort((a,b) => a.stock - b.stock).slice(0,10).map(p => ({name: p.name, stock: p.stock})), // Stock levels can be shown even with no sales
+        stockLevels: rawProducts.filter(p => p.stock < 10).sort((a,b) => a.stock - b.stock).slice(0,10).map(p => ({name: p.name, stock: p.stock})),
         salesProfitAnalysisData: [],
         summaryMetrics: { totalRevenue: 0, totalCostOfGoodsSold: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: rawProducts.filter(p => p.stock > 0 && p.stock < 10).length, totalUnitsSold: 0 },
         hasIncompleteCosting: false,
@@ -201,7 +200,7 @@ export default function RelatoriosPage() {
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
 
     const productAnalysisMap: Map<string, ProductAnalysisData> = new Map();
-    productsFromDB.forEach(product => { // Initialize for ALL products in inventory, even if not in filteredSales
+    productsFromDB.forEach(product => {
       productAnalysisMap.set(product.id, {
         productId: product.id, productName: product.name, unitsSold: 0, totalRevenue: 0, totalCost: 0, totalSalesRecords: 0,
       });
@@ -232,18 +231,15 @@ export default function RelatoriosPage() {
     
     let overallTotalCostOfGoodsSold = 0;
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
-      .filter(analysis => selectedProduct ? analysis.productId === selectedProduct : analysis.totalSalesRecords > 0) // Show selected product even if no sales, or only products with sales
+      .filter(analysis => selectedProduct ? analysis.productId === selectedProduct : analysis.totalSalesRecords > 0) 
       .map(analysis => {
         const totalProfit = analysis.totalRevenue - analysis.totalCost;
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
-        overallTotalCostOfGoodsSold += analysis.totalCost; // Sum up cost for all products that had sales in the filtered set
+        overallTotalCostOfGoodsSold += analysis.totalCost; 
         return { ...analysis, totalProfit, profitMargin: parseFloat(profitMargin.toFixed(2)) };
       }).sort((a, b) => b.totalProfit - a.totalProfit);
     
-    // Recalculate overallTotalCostOfGoodsSold based only on products that actually had sales in the filtered set
     overallTotalCostOfGoodsSold = allSalesToProcess.reduce((acc, sale) => {
-        const analysis = productAnalysisMap.get(sale.productId);
-        // Find cost for *this specific sale* to sum up accurately for the filtered set
         const currentSaleDateTime = sale.date.getTime();
         const relevantEntries = sortedEntries.filter(entry => entry.productId === sale.productId && entry.date.getTime() <= currentSaleDateTime && entry.unitPrice > 0);
         if (relevantEntries.length > 0) {
@@ -271,7 +267,7 @@ export default function RelatoriosPage() {
       hasIncompleteCosting: costCouldNotBeCalculatedForAllSalesOfAProduct,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedProduct]); // Include selectedProduct here
+  }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedProduct]);
 
   useEffect(() => {
     setHasIncompleteCosting(processedData.hasIncompleteCosting);
@@ -473,7 +469,7 @@ export default function RelatoriosPage() {
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto</CardTitle>
                         <CardDescription className="text-primary-foreground/80">
-                            Detalhes de receita, custo e lucro por produto {selectedClient || selectedProduct ? "(filtrado)" : "(geral)"}. O Lucro é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Estimado Total (dos Custos Unitários registrados nas Entradas)</strong>.
+                            Detalhes de receita, custo e lucro por produto {selectedClient || selectedProduct ? "(filtrado)" : "(geral)"}. O Lucro é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Total Estimado (dos Custos Unitários registrados nas Entradas)</strong>.
                         </CardDescription>
                     </div>
                    <div className="mt-4 text-sm text-destructive-foreground/90 border-2 border-dashed border-destructive/50 p-4 rounded-md bg-destructive/5">

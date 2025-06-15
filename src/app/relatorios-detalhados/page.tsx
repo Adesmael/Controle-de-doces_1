@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -42,7 +41,6 @@ export default function RelatoriosDetalhadosPage() {
 
       const allEntries = entriesFromDB.map(e => ({...e, date: new Date(e.date)}));
       const allSales = salesFromDB.map(s => ({...s, date: new Date(s.date)}));
-      // Entries MUST be sorted by date ascending to pick the latest relevant cost
       const sortedEntries = [...allEntries].sort((a, b) => a.date.getTime() - b.date.getTime());
       // console.log("--- DETALHADOS: Entradas Ordenadas (primeiras 5):", sortedEntries.slice(0,5).map(e => ({id: e.id, productId: e.productId, date: e.date.toISOString(), unitPrice: e.unitPrice})));
       // console.log("--- DETALHADOS: Vendas (primeiras 5):", allSales.slice(0,5).map(s => ({id: s.id, productId: s.productId, date: s.date.toISOString(), quantity: s.quantity, totalValue: s.totalValue})));
@@ -52,7 +50,7 @@ export default function RelatoriosDetalhadosPage() {
 
       const processedDetailedSales: DetailedSaleItem[] = allSales.map(sale => {
         // console.log(`--- DETALHADOS (ITEM VENDA): Processando Venda ID ${sale.id}, ProdutoID ${sale.productId} ('${sale.productName || 'N/A'}'), Data ${sale.date.toISOString()}, Qtd ${sale.quantity}, Valor Venda ${sale.totalValue}`);
-        const netRevenue = sale.totalValue; // totalValue from Sale already considers discount
+        const netRevenue = sale.totalValue; 
         let unitCost: number | undefined = undefined;
         let totalCost: number | undefined = undefined;
         let profit: number | undefined = undefined;
@@ -60,7 +58,6 @@ export default function RelatoriosDetalhadosPage() {
         let costCalculated = false;
 
         const currentSaleDateTime = sale.date.getTime();
-        // Filter relevant entries: same product, entry date on or before sale date, entry unit price > 0
         const relevantEntries = sortedEntries.filter(
           entry => entry.productId === sale.productId &&
                    entry.date.getTime() <= currentSaleDateTime &&
@@ -75,13 +72,12 @@ export default function RelatoriosDetalhadosPage() {
 
 
         if (relevantEntries.length > 0) {
-          // The last entry in relevantEntries is the latest one due to ascending sort of sortedEntries
           const latestRelevantEntry = relevantEntries[relevantEntries.length - 1];
           // console.log(`--- DETALHADOS (ITEM VENDA ID: ${sale.id}): Última entrada relevante SELECIONADA para ${sale.productName}: Custo Unit. ${latestRelevantEntry.unitPrice}, Data Entrada: ${latestRelevantEntry.date.toISOString()}, ID Entrada: ${latestRelevantEntry.id}`);
           unitCost = latestRelevantEntry.unitPrice;
           totalCost = unitCost * sale.quantity;
           profit = netRevenue - totalCost;
-          profitMargin = netRevenue > 0 ? (profit / netRevenue) * 100 : 0; // Profit margin on net revenue
+          profitMargin = netRevenue > 0 ? (profit / netRevenue) * 100 : 0; 
           costCalculated = true;
         } else {
             // console.warn(`--- DETALHADOS (ITEM VENDA ID: ${sale.id}): Nenhuma entrada de custo válida (com Custo Unitário > 0 e Data Entrada <= Data da Venda) encontrada para ${sale.productName} (Produto ID: ${sale.productId}). Custo para esta venda será N/D.`);
@@ -89,20 +85,19 @@ export default function RelatoriosDetalhadosPage() {
         }
 
         return {
-          ...sale, // Includes original sale fields like unitPrice (selling price), discount
-          netRevenue, // This is totalValue from Sale: (sale.unitPrice * sale.quantity) - sale.discount
-          unitCost,   // Cost of one unit from Entry
-          totalCost,  // unitCost * sale.quantity
-          profit,     // netRevenue - totalCost
-          profitMargin, // (profit / netRevenue) * 100
+          ...sale, 
+          netRevenue, 
+          unitCost,   
+          totalCost,  
+          profit,     
+          profitMargin, 
           costCalculated,
         };
-      }).sort((a,b) => b.date.getTime() - a.date.getTime()); // Sort by most recent sale first
+      }).sort((a,b) => b.date.getTime() - a.date.getTime()); 
       setDetailedSales(processedDetailedSales);
       if (hasAnyCostWarning) setCostCalculationWarning(true);
       // console.log("--- DETALHADOS: Vendas Detalhadas Processadas (primeiras 3):", processedDetailedSales.slice(0,3));
 
-      // Aggregate by Customer
       const customerAgg: { [key: string]: { totalRevenue: number, totalCost: number, totalUnitsSold: number } } = {};
       processedDetailedSales.forEach(ds => {
         const key = ds.customer.trim().toLowerCase();
@@ -124,7 +119,6 @@ export default function RelatoriosDetalhadosPage() {
       // console.log("--- DETALHADOS: Vendas por Cliente (primeiros 3):", processedCustomerSales.slice(0,3));
 
 
-      // Aggregate by Product
       const productAgg: { [key: string]: { productName: string, totalUnitsSold: number, totalRevenue: number, totalCost: number, saleCountWithProfitMargin: number, totalProfitMarginSum: number } } = {};
       processedDetailedSales.forEach(ds => {
         const product = productsFromDB.find(p => p.id === ds.productId);
@@ -152,7 +146,6 @@ export default function RelatoriosDetalhadosPage() {
       setProductSalesSummary(processedProductSales);
       // console.log("--- DETALHADOS: Vendas por Produto (primeiros 3):", processedProductSales.slice(0,3));
 
-      // Aggregate Daily Sales
       const dailyAgg: { [key: string]: { totalRevenue: number, totalCost: number } } = {};
       processedDetailedSales.forEach(ds => {
         const dayKey = format(ds.date, "yyyy-MM-dd");
@@ -173,7 +166,6 @@ export default function RelatoriosDetalhadosPage() {
       // console.log("--- DETALHADOS: Vendas Diárias (primeiros 3):", processedDailySales.slice(0,3));
 
 
-      // Aggregate Monthly Sales
       const monthlyAgg: { [key: string]: { totalRevenue: number, totalCost: number } } = {};
       processedDetailedSales.forEach(ds => {
         const monthYearKey = format(ds.date, "yyyy-MM");
@@ -267,11 +259,11 @@ export default function RelatoriosDetalhadosPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="shadow-xl">
-        <CardHeader className="bg-primary/5">
+        <CardHeader className="bg-primary/5 text-primary-foreground">
           <div className="flex items-center gap-3">
             <FileSpreadsheet size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
-              Relatórios Detalhados
+              Relatórios Detalhados e Avançados
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80 mt-1">
@@ -296,10 +288,10 @@ export default function RelatoriosDetalhadosPage() {
         { header: "Cliente", accessor: (row: DetailedSaleItem) => row.customer },
         { header: "Produto", accessor: (row: DetailedSaleItem) => row.productName },
         { header: "Qtd.", accessor: (row: DetailedSaleItem) => row.quantity, className: "text-right" },
-        { header: "Venda Unit. (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.unitPrice), className: "text-right" }, // Selling price per unit
-        { header: "Receita Líq. (R$)", accessor: (row: DetailedSaleItem) => <span className="font-semibold">{renderValue(row.netRevenue)}</span>, className: "text-right" }, // Total value of sale after discount
-        { header: "Custo Unit. (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.unitCost), className: "text-right text-xs" }, // Cost per unit from entry
-        { header: "Custo Total Venda (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.totalCost), className: "text-right text-xs" }, // Total cost for this sale item
+        { header: "Venda Unit. (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.unitPrice), className: "text-right" }, 
+        { header: "Receita Líq. (R$)", accessor: (row: DetailedSaleItem) => <span className="font-semibold">{renderValue(row.netRevenue)}</span>, className: "text-right" }, 
+        { header: "Custo Unit. (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.unitCost), className: "text-right text-xs" }, 
+        { header: "Custo Total Venda (R$)", accessor: (row: DetailedSaleItem) => renderValue(row.totalCost), className: "text-right text-xs" }, 
         { header: "Lucro Venda (R$)", accessor: (row: DetailedSaleItem) => <span className={`font-semibold ${row.profit === undefined ? '' : row.profit < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.profit)}</span>, className: "text-right" },
         { header: "Margem (%)", accessor: (row: DetailedSaleItem) => <span className={`${row.profitMargin === undefined ? '' : row.profitMargin < 0 ? 'text-destructive' : 'text-green-600'}`}>{renderValue(row.profitMargin, false, 1)}%</span>, className: "text-right text-xs" },
       ], "Vendas ordenadas da mais recente para a mais antiga. 'N/D' indica que o custo não pôde ser determinado para a venda. Linhas em rosa claro indicam vendas sem custo calculado.", ListOrdered)}

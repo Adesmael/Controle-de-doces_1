@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -77,7 +76,7 @@ const Header = () => {
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/produtos" className="flex items-center gap-3 text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
+        <Link href="/produtos" className="flex items-center gap-2.5 text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
           <Banana size={32} />
           Controle de Doces
         </Link>
