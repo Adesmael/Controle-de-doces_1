@@ -38,7 +38,7 @@ const Header = () => {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const DesktopNav = () => (
-    <nav className="flex items-center space-x-1">
+    <nav className="flex items-center space-x-1 bg-primary">
       {navLinks.map(link => {
         const Icon = link.icon;
         const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
@@ -46,7 +46,7 @@ const Header = () => {
             <Button key={link.href} variant="ghost" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/80 btn-animated px-3 py-2">
             <Link href={link.href} className="flex items-center gap-1.5">
                 {iconElement}
-                {link.label}
+                <span>{link.label}</span>
             </Link>
             </Button>
         );
@@ -77,7 +77,7 @@ const Header = () => {
                 <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2" onClick={closeMobileNav}>
                 <Link href={link.href} className="flex items-center gap-3">
                     {iconElement}
-                    {link.label}
+                    <span>{link.label}</span>
                 </Link>
                 </Button>
             );
@@ -93,10 +93,11 @@ const Header = () => {
       <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
-            <Banana size={32} className="mr-1"/>
+            <Banana size={32} className="mr-1"/> {/* Default to desktop size for SSR */}
             <span>Controle de Doces</span>
           </Link>
-          <nav className="flex items-center space-x-1">
+          {/* Fallback for SSR: Render DesktopNav structure */}
+          <nav className="flex items-center space-x-1 bg-primary">
             {navLinks.map(link => {
                 const Icon = link.icon;
                 const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
@@ -104,7 +105,7 @@ const Header = () => {
                     <Button key={link.href} variant="ghost" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/80 btn-animated px-3 py-2">
                     <Link href={link.href} className="flex items-center gap-1.5">
                         {iconElement}
-                        {link.label}
+                        <span>{link.label}</span>
                     </Link>
                     </Button>
                 );
