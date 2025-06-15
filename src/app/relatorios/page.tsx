@@ -155,16 +155,19 @@ export default function RelatoriosPage() {
 
     const allSalesToProcess = filteredSales;
     const productsFromDB = rawProducts;
-    const sortedEntries = [...rawEntries].sort((a, b) => a.date.getTime() - b.date.getTime());
+    // DETAILED COST DEBUG: console.log("[RELATORIOS] Raw Entries before sorting for cost calculation:", JSON.parse(JSON.stringify(rawEntries)));
+    const sortedEntries = [...rawEntries].sort((a, b) => a.date.getTime() - b.date.getTime()); // Sort ASC for cost calculation
+    // DETAILED COST DEBUG: console.log("[RELATORIOS] Sorted Entries ASC (for cost calculation):", JSON.parse(JSON.stringify(sortedEntries)));
+
     let costCouldNotBeCalculatedForAnySale = false;
     let salesWithCostCount = 0;
     
-    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): INÍCIO DO PROCESSAMENTO DE DADOS ---");
-    // DETAILED COST DEBUG: console.log("Número de vendas (Saídas) após filtros:", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Número de produtos no DB:", productsFromDB.length);
-    // DETAILED COST DEBUG: console.log("Número de entradas (Custos) no DB (ordenadas por data ASC):", sortedEntries.length);
-    // DETAILED COST DEBUG: console.log("Filtro de cliente selecionado:", selectedClient);
-    // DETAILED COST DEBUG: console.log("Filtro de produto selecionado:", selectedProductFilter);
+    // DETAILED COST DEBUG: console.groupCollapsed("--- [RELATORIOS] INÍCIO DO PROCESSAMENTO DE DADOS (SUMÁRIO) ---");
+    // DETAILED COST DEBUG: console.log(`Número de vendas (Saídas) após filtros (allSalesToProcess): ${allSalesToProcess.length}`);
+    // DETAILED COST DEBUG: console.log(`Número de produtos no DB (productsFromDB): ${productsFromDB.length}`);
+    // DETAILED COST DEBUG: console.log(`Número de entradas (Custos) no DB (sortedEntries ASC): ${sortedEntries.length}`);
+    // DETAILED COST DEBUG: console.log(`Filtro de cliente selecionado: ${selectedClient}`);
+    // DETAILED COST DEBUG: console.log(`Filtro de produto selecionado: ${selectedProductFilter}`);
 
 
     const monthlySalesAgg: { [key: string]: number } = {};
@@ -202,7 +205,7 @@ export default function RelatoriosPage() {
       .sort((a, b) => b.sales - a.sales).slice(0, 5);
 
     const processedStockLevels: StockLevelData[] = productsFromDB
-      .filter(p => p.stock < 10) // Shows items with less than 10 in stock, including 0
+      .filter(p => p.stock < 10) 
       .sort((a,b) => a.stock - b.stock).slice(0, 10)
       .map(product => ({ name: product.name, stock: product.stock }));
 
@@ -218,31 +221,28 @@ export default function RelatoriosPage() {
     });
     
     let overallTotalCostOfGoodsSold = 0;
-    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): CÁLCULO DE CUSTO DETALHADO PARA CADA VENDA ---");
+    // DETAILED COST DEBUG: console.groupCollapsed("--- [RELATORIOS] CÁLCULO DE CUSTO DETALHADO PARA CADA VENDA ---");
 
     allSalesToProcess.forEach(sale => {
-      // DETAILED COST DEBUG: console.groupCollapsed(`--- Processando Venda ID: ${sale.id} ---`);
-      // DETAILED COST DEBUG: console.log(`Detalhes da Venda: Produto ID '${sale.productId}' (${sale.productName || 'Nome N/A'}), Data: ${sale.date.toISOString()}, Quantidade: ${sale.quantity}, Valor da Venda: ${sale.totalValue.toFixed(2)}`);
+      // DETAILED COST DEBUG: console.groupCollapsed(`--- Processando Venda ID: ${sale.id} (Produto: ${sale.productId} - ${sale.productName || 'N/A'}) ---`);
+      // DETAILED COST DEBUG: console.log(`Detalhes da Venda: Cliente '${sale.customer}', Data: ${sale.date.toISOString()}, Quantidade: ${sale.quantity}, Valor Venda: ${sale.totalValue.toFixed(2)}`);
 
       const analysis = productAnalysisMap.get(sale.productId);
       if (!analysis) {
           // DETAILED COST DEBUG: console.warn(`Produto ID ${sale.productId} da venda não encontrado no 'productAnalysisMap'. Pulando cálculo de custo para este item da venda.`);
-          // DETAILED COST DEBUG: console.groupEnd(); // End group for this sale
-          return; // Skip to next sale if product not in analysis map
+          // DETAILED COST DEBUG: console.groupEnd();
+          return; 
       }
       analysis.totalRevenue += sale.totalValue;
       analysis.unitsSold += sale.quantity;
       analysis.totalSalesRecords +=1;
 
       const currentSaleDateTime = sale.date.getTime();
-      // DETAILED COST DEBUG: console.log("Timestamp da Venda (ms):", currentSaleDateTime, `(${sale.date.toLocaleDateString('pt-BR')})`);
+      // DETAILED COST DEBUG: console.log(`Timestamp da Venda (ms): ${currentSaleDateTime} (${sale.date.toLocaleDateString('pt-BR')})`);
       
-      // Filter entries for this specific product
       const entriesForThisProduct = sortedEntries.filter(entry => entry.productId === sale.productId);
       // DETAILED COST DEBUG: console.log(`Encontradas ${entriesForThisProduct.length} entradas TOTAIS para o produto ID '${sale.productId}':`, entriesForThisProduct.map(e => ({id: e.id, data: e.date.toISOString(), custoUnit: e.unitPrice, qtd: e.quantity })));
 
-
-      // Filter relevant entries: must be on or before the sale date AND have a positive unit cost
       const relevantEntries = entriesForThisProduct.filter(entry => {
         const entryDateOk = entry.date.getTime() <= currentSaleDateTime;
         const entryCostOk = entry.unitPrice > 0;
@@ -261,36 +261,34 @@ export default function RelatoriosPage() {
         const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
         analysis.totalCost += costForThisSaleItem;
         overallTotalCostOfGoodsSold += costForThisSaleItem;
-        salesWithCostCount++; // Increment count of sales for which cost was successfully calculated
-        // DETAILED COST DEBUG: console.log(`Custo para este item da venda (ID ${sale.id}): ${costForThisSaleItem.toFixed(2)} (Custo Unit. ${latestRelevantEntry.unitPrice.toFixed(2)} * Qtd ${sale.quantity}). Custo total acumulado para o PRODUTO '${sale.productId}': ${analysis.totalCost.toFixed(2)}`);
+        salesWithCostCount++; 
+        // DETAILED COST DEBUG: console.log(`Custo para este item da venda (ID ${sale.id}): ${costForThisSaleItem.toFixed(2)} (Custo Unit. ${latestRelevantEntry.unitPrice.toFixed(2)} * Qtd ${sale.quantity}). Custo total acumulado para o PRODUTO '${sale.productId}': ${analysis.totalCost.toFixed(2)}. Overall Total Cost: ${overallTotalCostOfGoodsSold.toFixed(2)}`);
       } else {
-        // DETAILED COST DEBUG: console.warn(`NENHUMA entrada de custo válida (Custo Unitário > 0 e Data da Entrada <= Data da Venda) encontrada para o Produto ID '${sale.productId}' para esta venda (ID ${sale.id}). O custo para este item da venda será R$0,00.`);
-        costCouldNotBeCalculatedForAnySale = true; // Flag that at least one sale item couldn't have its cost determined
+        // DETAILED COST DEBUG: console.warn(`NENHUMA entrada de custo válida (Custo Unitário > 0 E Data da Entrada <= Data da Venda) encontrada para o Produto ID '${sale.productId}' para esta venda (ID ${sale.id}). O custo para este item da venda será R$0,00.`);
+        costCouldNotBeCalculatedForAnySale = true;
       }
-      // DETAILED COST DEBUG: console.groupEnd(); // End group for this sale
+      // DETAILED COST DEBUG: console.groupEnd(); 
     });
-    // DETAILED COST DEBUG: console.groupEnd(); // End group for CÁLCULO DE CUSTO DETALHADO
+    // DETAILED COST DEBUG: console.groupEnd(); 
     
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
-      // Filter results based on selectedProductFilter: if a specific product is chosen, only show that; otherwise, show all products that had sales.
       .filter(analysis => selectedProductFilter !== ALL_FILTER_VALUE ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
       .map(analysis => {
         const totalProfit = analysis.totalRevenue - analysis.totalCost;
-        // Profit margin is calculated as (Total Profit / Total Revenue) * 100. Handle division by zero.
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
         return { ...analysis, totalProfit, profitMargin: parseFloat(profitMargin.toFixed(2)) };
-      }).sort((a, b) => b.totalProfit - a.totalProfit); // Sort by total profit descending
+      }).sort((a, b) => b.totalProfit - a.totalProfit); 
     
-    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): RESUMO FINAL DO CÁLCULO DE CUSTOS E LUCROS ---");
-    // DETAILED COST DEBUG: console.log("Receita Total (Vendas Brutas, após filtros):", totalRevenue.toFixed(2));
-    // DETAILED COST DEBUG: console.log("Custo Total Estimado (CMV, com base nas Entradas válidas):", overallTotalCostOfGoodsSold.toFixed(2));
-    // DETAILED COST DEBUG: console.log("Lucro Total Estimado (Receita - Custo):", (totalRevenue - overallTotalCostOfGoodsSold).toFixed(2));
-    // DETAILED COST DEBUG: console.log("Número de registros de VENDA processados (após filtros):", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Número de registros de VENDA com custo efetivamente calculado:", salesWithCostCount);
-    // DETAILED COST DEBUG: console.log("Algum item de venda NÃO teve seu custo calculado (faltou Entrada válida)?", costCouldNotBeCalculatedForAnySale);
+    // DETAILED COST DEBUG: console.groupCollapsed("--- [RELATORIOS] RESUMO FINAL DO CÁLCULO DE CUSTOS E LUCROS ---");
+    // DETAILED COST DEBUG: console.log(`Receita Total (Vendas Brutas, após filtros): ${totalRevenue.toFixed(2)}`);
+    // DETAILED COST DEBUG: console.log(`Custo Total Estimado (CMV, com base nas Entradas válidas): ${overallTotalCostOfGoodsSold.toFixed(2)}`);
+    // DETAILED COST DEBUG: console.log(`Lucro Total Estimado (Receita - Custo): ${(totalRevenue - overallTotalCostOfGoodsSold).toFixed(2)}`);
+    // DETAILED COST DEBUG: console.log(`Número de registros de VENDA processados (após filtros): ${allSalesToProcess.length}`);
+    // DETAILED COST DEBUG: console.log(`Número de registros de VENDA com custo efetivamente calculado: ${salesWithCostCount}`);
+    // DETAILED COST DEBUG: console.log(`Algum item de venda NÃO teve seu custo calculado (faltou Entrada válida)? ${costCouldNotBeCalculatedForAnySale}`);
     // DETAILED COST DEBUG: console.log("Dados de Lucratividade por Produto (final, após filtros e ordenação):", processedProductProfitData);
-    // DETAILED COST DEBUG: console.groupEnd(); // End group for RESUMO FINAL
-    // DETAILED COST DEBUG: console.groupEnd(); // End group for PROCESSAMENTO DE DADOS
+    // DETAILED COST DEBUG: console.groupEnd(); 
+    // DETAILED COST DEBUG: console.groupEnd(); 
 
     return {
       monthlySales: processedMonthlySales,
@@ -325,8 +323,6 @@ export default function RelatoriosPage() {
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
     }
     if (isLoading && isMounted && data.length > 0 && !processedData.summaryMetrics.totalRevenue && selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE && rawSales.length > 0) { 
-       //This condition attempts to catch if there are sales but filters might be making data disappear before full processing
-       // However, the primary check for `data.length === 0` after loading is more reliable.
        return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
     }
     if (isLoading && isMounted) { return <div className={`flex flex-col items-center justify-center ${minHeight} py-10`}><Skeleton className="w-full h-full" /></div>; } 
@@ -337,6 +333,11 @@ export default function RelatoriosPage() {
     setSelectedClient(ALL_FILTER_VALUE);
     setSelectedProductFilter(ALL_FILTER_VALUE);
   };
+
+  const shouldShowCostingAlert = isMounted &&
+                                 !isLoading &&
+                                 processedData.summaryMetrics.numberOfSalesProcessed > 0 &&
+                                 processedData.hasIncompleteCostingData;
 
 
   if (isLoading && !isMounted) { 
@@ -438,7 +439,7 @@ export default function RelatoriosPage() {
                 </Card>
             </div>
 
-             {isMounted && processedData.hasIncompleteCostingData && (
+             {shouldShowCostingAlert && (
                 <Alert variant="destructive" className="mb-6">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Atenção ao Cálculo de Custo!</AlertTitle>
@@ -451,7 +452,7 @@ export default function RelatoriosPage() {
                             <li>O <strong className="text-destructive-foreground">'Custo Unitário'</strong> na 'Entrada' (o preço que você pagou pelo produto) é <strong className="underline">MAIOR QUE ZERO</strong>?</li>
                             <li>A <strong className="text-destructive-foreground">'Data da Entrada'</strong> é <strong className="underline">ANTERIOR ou IGUAL</strong> à data da venda? O sistema usa a entrada mais recente que atenda a essa condição.</li>
                         </ul>
-                         <p className="mt-2 text-xs">Para depurar, DESCOMENTE as linhas `// DETAILED COST DEBUG:` no arquivo `src/app/relatorios/page.tsx` e verifique o console do navegador (F12) para rastrear o cálculo de cada venda.</p>
+                         <p className="mt-2 text-xs">Para depurar, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`) e verifique o console do navegador (F12) para rastrear o cálculo de cada venda.</p>
                     </AlertDescription>
                 </Alert>
             )}
@@ -537,16 +538,7 @@ export default function RelatoriosPage() {
                             <br/>O "Custo Estimado Total" é derivado EXCLUSIVAMENTE do "Custo Unitário" registrado na tela de <strong className="text-primary-foreground">'Entradas'</strong>.
                         </CardDescription>
                     </div>
-                    <div className="mt-4 text-sm text-primary-foreground/80 border-2 border-dashed border-primary/30 p-4 rounded-md bg-primary/5">
-                        <strong className="block mb-2 text-md text-primary-foreground font-semibold flex items-center"><Info size={18} className="mr-2 text-primary"/>PARA GARANTIR O CÁLCULO CORRETO DO CUSTO E LUCRO:</strong>
-                        <p className="mb-2 text-xs">Se o "Custo Estimado Total" estiver <strong className="text-primary-foreground">R$ 0,00</strong> para um produto na tabela abaixo (e ele teve vendas), verifique se as seguintes condições foram atendidas para CADA VENDA daquele produto:</p>
-                        <ol className="list-decimal list-inside text-xs space-y-1.5 pl-2">
-                            <li><strong className="text-primary-foreground">PRODUTO CORRESPONDENTE:</strong> Deve existir um registro de 'Entrada' para <strong className="underline">ESSE MESMO PRODUTO</strong> (o ID do produto deve ser idêntico).</li>
-                            <li><strong className="text-primary-foreground">CUSTO UNITÁRIO NA ENTRADA &gt; 0:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' (o preço que você pagou pelo produto) <strong className="underline">DEVE SER MAIOR QUE ZERO</strong>.</li>
-                            <li><strong className="text-primary-foreground">DATA DA ENTRADA CORRETA:</strong> A 'Data da Entrada' do custo deve ser <strong className="underline">ANTERIOR ou IGUAL</strong> à 'Data da Saída' (venda) do produto. O sistema usa a entrada de custo mais recente que atenda essa condição.</li>
-                        </ol>
-                         <p className="mt-3 text-xs"><strong className="text-primary-foreground">FERRAMENTA DE DEPURAÇÃO:</strong> Se, após verificar, o custo ainda não aparecer, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`). Abra o console do navegador (F12) para ver como os dados são processados e quais entradas são (ou não) consideradas. Isso ajudará a identificar se o problema é com a data da entrada, o custo unitário, o ID do produto, ou outra questão nos dados.</p>
-                    </div>
+                    {/* Guia de depuração de custo já existente e agora mais visível com a variável shouldShowCostingAlert */}
                 </CardHeader>
                 <CardContent>
                     {(isLoading && !isMounted) ? (
@@ -585,7 +577,7 @@ export default function RelatoriosPage() {
                             <TableCaption>
                                 Lucratividade Estimada = Receita das Vendas - Custo das Entradas.
                                 Se o Custo Estimado Total for R$0,00 para um produto com vendas, verifique se as <strong className="text-primary-foreground/80">Entradas</strong> de estoque foram registradas com <strong className="text-primary-foreground/80">Custos Unitários maiores que zero</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong>.
-                                {isMounted && processedData.hasIncompleteCostingData && <span className="block mt-1 text-xs text-destructive">Atenção: Para algumas vendas, o custo não pôde ser determinado. Verifique os critérios de entrada. DESCOMENTE as linhas "// DETAILED COST DEBUG:" no código e use o console do navegador (F12) para depurar.</span>}
+                                {isMounted && processedData.hasIncompleteCostingData && processedData.summaryMetrics.numberOfSalesProcessed > 0 && <span className="block mt-1 text-xs text-destructive font-semibold">Atenção: O 'Custo Total Estimado (CMV)' e o 'Lucro Total Estimado' podem estar incorretos. Algumas vendas não tiveram custo calculado. Verifique suas 'Entradas' e os logs do console (descomente 'DETAILED COST DEBUG' no código).</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -624,3 +616,4 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
