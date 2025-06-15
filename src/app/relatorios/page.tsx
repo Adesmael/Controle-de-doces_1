@@ -43,14 +43,12 @@ interface StockLevelData {
 
 interface SummaryMetrics {
   totalRevenue: number;
-  totalCostOfGoodsSold: number; // CMV - Stays for per-product analysis
-  totalCostOfAllEntries: number; // This is the new "Custo Total" for the card
-  totalProfitAllProducts: number; // This will be Revenue - totalCostOfAllEntries for the card
+  totalCostOfAllEntries: number;
+  totalProfitAllProducts: number;
   activeCustomers: number;
   lowStockItemsCount: number;
   totalUnitsSold: number;
   numberOfSalesProcessed: number;
-  numberOfSalesWithCost: number;
 }
 
 const salesChartConfig = {
@@ -148,17 +146,13 @@ export default function RelatoriosPage() {
         topProductsChartData: [],
         stockLevels: [],
         salesProfitAnalysisData: [],
-        summaryMetrics: { totalRevenue: 0, totalCostOfGoodsSold: 0, totalCostOfAllEntries: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: 0, totalUnitsSold: 0, numberOfSalesProcessed: 0, numberOfSalesWithCost: 0 },
-        hasIncompleteCostingData: false,
+        summaryMetrics: { totalRevenue: 0, totalCostOfAllEntries: 0, totalProfitAllProducts: 0, activeCustomers: 0, lowStockItemsCount: 0, totalUnitsSold: 0, numberOfSalesProcessed: 0 },
+        hasZeroCostEntries: false,
       };
     }
 
     const allSalesToProcess = filteredSales;
     const productsFromDB = rawProducts;
-    const sortedEntries = [...rawEntries].sort((a, b) => a.date.getTime() - b.date.getTime()); 
-    
-    let costCouldNotBeCalculatedForAnySale = false;
-    let salesWithCostCount = 0;
     
     const monthlySalesAgg: { [key: string]: number } = {};
     const sixMonthsAgo = subMonths(new Date(), 5); sixMonthsAgo.setDate(1); sixMonthsAgo.setHours(0,0,0,0);
@@ -199,19 +193,33 @@ export default function RelatoriosPage() {
       .sort((a,b) => a.stock - b.stock).slice(0, 10)
       .map(product => ({ name: product.name, stock: product.stock }));
 
-    const totalRevenue = allSalesToProcess.reduce((sum, sale) => sum + sale.totalValue, 0);
+    const totalRevenueFromFilteredSales = allSalesToProcess.reduce((sum, sale) => sum + sale.totalValue, 0);
     const uniqueCustomers = new Set(allSalesToProcess.map(sale => sale.customer.toLowerCase().trim()));
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
+    
+    // Calculate total cost of all entries (not filtered by sales)
+    const totalCostOfAllEntriesSystemWide = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
+    
+    // Calculate profit for summary card based on filtered sales revenue and system-wide total entry cost
+    const profitForSummaryCard = totalRevenueFromFilteredSales - totalCostOfAllEntriesSystemWide;
 
-    const productAnalysisMap: Map<string, SalesProfitData> = new Map();
+    // Calculate total cost of entries PER PRODUCT
+    const productTotalEntryCosts: Record<string, number> = {};
+    let systemHasZeroCostEntries = false;
+    rawEntries.forEach(entry => {
+      productTotalEntryCosts[entry.productId] = (productTotalEntryCosts[entry.productId] || 0) + entry.totalValue;
+      if (entry.unitPrice === 0) {
+        systemHasZeroCostEntries = true;
+      }
+    });
+    
+    const productAnalysisMap: Map<string, {productId: string, productName: string, unitsSold: number, totalRevenue: number, totalSalesRecords: number}> = new Map();
     productsFromDB.forEach(product => {
       productAnalysisMap.set(product.id, {
-        productId: product.id, productName: product.name, unitsSold: 0, totalRevenue: 0, totalCost: 0, totalProfit:0, profitMargin:0, totalSalesRecords: 0,
+        productId: product.id, productName: product.name, unitsSold: 0, totalRevenue: 0, totalSalesRecords: 0,
       });
     });
     
-    let overallTotalCostOfGoodsSold = 0; // This is CMV for per-product analysis
-
     allSalesToProcess.forEach(sale => {
       const analysis = productAnalysisMap.get(sale.productId);
       if (!analysis) {
@@ -220,41 +228,22 @@ export default function RelatoriosPage() {
       analysis.totalRevenue += sale.totalValue;
       analysis.unitsSold += sale.quantity;
       analysis.totalSalesRecords +=1;
-
-      const currentSaleDateTime = sale.date.getTime();
-      
-      const entriesForThisProduct = sortedEntries.filter(entry => entry.productId === sale.productId);
-
-      const relevantEntries = entriesForThisProduct.filter(entry => {
-        const entryDateOk = entry.date.getTime() <= currentSaleDateTime;
-        const entryCostOk = entry.unitPrice > 0;
-        return entryDateOk && entryCostOk;
-      });
-      
-      if (relevantEntries.length > 0) {
-        const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
-        
-        const costForThisSaleItem = latestRelevantEntry.unitPrice * sale.quantity;
-        analysis.totalCost += costForThisSaleItem; // Per-product CMV
-        overallTotalCostOfGoodsSold += costForThisSaleItem; // Overall CMV
-        salesWithCostCount++; 
-      } else {
-        costCouldNotBeCalculatedForAnySale = true;
-      }
     });
     
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
       .filter(analysis => selectedProductFilter !== ALL_FILTER_VALUE ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
       .map(analysis => {
-        const totalProfit = analysis.totalRevenue - analysis.totalCost; // Per-product profit based on its CMV
+        const productCostFromEntries = productTotalEntryCosts[analysis.productId] || 0;
+        const totalProfit = analysis.totalRevenue - productCostFromEntries;
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
-        return { ...analysis, totalProfit, profitMargin: parseFloat(profitMargin.toFixed(2)) };
+        return { 
+            ...analysis, 
+            totalCost: productCostFromEntries, // This is now total entry cost for this product
+            totalProfit, 
+            profitMargin: parseFloat(profitMargin.toFixed(2)) 
+        };
       }).sort((a, b) => b.totalProfit - a.totalProfit); 
     
-    const totalCostOfAllEntries = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
-
-    // New calculation for the "Lucro Total Estimado" card
-    const profitForSummaryCard = totalRevenue - totalCostOfAllEntries;
 
     return {
       monthlySales: processedMonthlySales,
@@ -263,17 +252,15 @@ export default function RelatoriosPage() {
       stockLevels: processedStockLevels,
       salesProfitAnalysisData: processedProductProfitData,
       summaryMetrics: {
-        totalRevenue,
-        totalCostOfGoodsSold: overallTotalCostOfGoodsSold, // CMV, for per-product analysis and alert
-        totalCostOfAllEntries, // For "Custo Total" card
-        totalProfitAllProducts: profitForSummaryCard, // For "Lucro Total Estimado" card
+        totalRevenue: totalRevenueFromFilteredSales,
+        totalCostOfAllEntries: totalCostOfAllEntriesSystemWide,
+        totalProfitAllProducts: profitForSummaryCard,
         activeCustomers: uniqueCustomers.size,
         lowStockItemsCount,
         totalUnitsSold: overallTotalUnitsSold,
         numberOfSalesProcessed: allSalesToProcess.length,
-        numberOfSalesWithCost: salesWithCostCount,
       },
-      hasIncompleteCostingData: costCouldNotBeCalculatedForAnySale, // Based on CMV calculation
+      hasZeroCostEntries: systemHasZeroCostEntries,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredSales, rawProducts, rawEntries, isLoading, isMounted, selectedProductFilter]);
@@ -301,10 +288,7 @@ export default function RelatoriosPage() {
     setSelectedProductFilter(ALL_FILTER_VALUE);
   };
 
-  const shouldShowCostingAlert = isMounted &&
-                                 !isLoading &&
-                                 processedData.summaryMetrics.numberOfSalesProcessed > 0 &&
-                                 processedData.hasIncompleteCostingData;
+  const shouldShowZeroCostEntryAlert = isMounted && !isLoading && processedData.hasZeroCostEntries;
 
 
   if (isLoading && !isMounted) { 
@@ -321,14 +305,14 @@ export default function RelatoriosPage() {
           </div>
            <div className="text-primary-foreground/80 mt-1">
             Acompanhe as métricas chave do seu negócio. O <strong className="text-primary-foreground">Lucro Total Estimado</strong> é: <strong className="text-primary-foreground">Receita Total (Vendas) MENOS Custo Total (de todas as Entradas)</strong>.
-            <br/>A tabela "Análise de Lucratividade por Produto" usa o CMV (Custo da Mercadoria Vendida) para calcular o lucro por item. Certifique-se que os <strong className="text-primary-foreground">Custos Unitários</strong> e as <strong className="text-primary-foreground">Datas</strong> nas <strong className="text-primary-foreground">Entradas</strong> de estoque estão corretos para um cálculo preciso do CMV.
+            <br/>A tabela "Análise de Lucratividade por Produto" agora mostra o "Custo Total" como a soma de todas as entradas para aquele produto.
            </div>
         </CardHeader>
         <CardContent className="p-6">
             <Card className="mb-6 bg-card/50 shadow">
                 <CardHeader>
                     <CardTitle className="text-lg font-headline flex items-center gap-2"><Filter size={20} className="text-primary"/>Filtros</CardTitle>
-                    <CardDescription>Refine os dados dos relatórios abaixo. Os filtros se aplicam a todos os cards e gráficos, exceto ao "Custo Total".</CardDescription>
+                    <CardDescription>Refine os dados dos relatórios abaixo. O card "Custo Total" não é afetado pelos filtros.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1 min-w-[200px]">
@@ -380,7 +364,7 @@ export default function RelatoriosPage() {
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lucro Total Estimado</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Receita Total - Custo Total (de todas as Entradas) {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Receita Total (filtrada) - Custo Total (de todas as Entradas, não filtrado).</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
@@ -406,18 +390,16 @@ export default function RelatoriosPage() {
                 </Card>
             </div>
 
-             {shouldShowCostingAlert && (
+             {shouldShowZeroCostEntryAlert && (
                 <Alert variant="destructive" className="mb-6">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Atenção ao Cálculo de Custo (CMV) para a Tabela de Lucratividade por Produto!</AlertTitle>
+                    <AlertTitle>Atenção ao Cálculo de Custo na Tabela de Lucratividade por Produto!</AlertTitle>
                     <AlertDescription>
-                        Para <strong className="font-semibold">{processedData.summaryMetrics.numberOfSalesProcessed - processedData.summaryMetrics.numberOfSalesWithCost} de {processedData.summaryMetrics.numberOfSalesProcessed}</strong> vendas processadas (com os filtros atuais), o CUSTO DA MERCADORIA VENDIDA (CMV) NÃO PÔDE SER DETERMINADO. 
-                        Isso afeta a precisão da tabela "Análise de Lucratividade por Produto".
+                        Alguns produtos podem ter seu "Custo Total" (e consequentemente "Lucro Estimado") na tabela abaixo subestimado.
+                        Isso ocorre se houver registros de 'Entrada' para esses produtos com <strong className="font-semibold text-destructive-foreground">"Custo Unitário" igual a zero</strong>.
                         <br/><strong className="block mt-1">Verifique seus lançamentos de 'Entrada':</strong>
                         <ul className="list-disc pl-5 mt-1 text-xs space-y-0.5">
-                            <li>O produto vendido possui uma 'Entrada' correspondente?</li>
-                            <li>O <strong className="text-destructive-foreground">'Custo Unitário'</strong> na 'Entrada' é <strong className="underline">MAIOR QUE ZERO</strong>?</li>
-                            <li>A <strong className="text-destructive-foreground">'Data da Entrada'</strong> é <strong className="underline">ANTERIOR ou IGUAL</strong> à data da venda?</li>
+                            <li>Certifique-se de que o "Custo Unitário" em todas as 'Entradas' de estoque seja maior que zero para um cálculo preciso do custo do produto na tabela.</li>
                         </ul>
                     </AlertDescription>
                 </Alert>
@@ -500,8 +482,9 @@ export default function RelatoriosPage() {
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto</CardTitle>
                         <CardDescription className="text-primary-foreground/80">
-                            Detalhes de receita, custo (CMV) e lucro por produto {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}. Lucro = Receita - Custo Estimado (CMV).
-                            <br/>O "Custo Estimado Total (CMV)" é derivado EXCLUSIVAMENTE do "Custo Unitário" registrado na tela de <strong className="text-primary-foreground">'Entradas' para os produtos VENDIDOS</strong>.
+                            Detalhes de receita, custo e lucro por produto {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.
+                            <br/>O "Custo Total (R$)" nesta tabela é a soma de todas as <strong className="text-primary-foreground">'Entradas'</strong> registradas para aquele produto.
+                            <br/>"Lucro Estimado Total (R$)" = Receita Total do produto - Custo Total de Entradas do produto.
                         </CardDescription>
                     </div>
                 </CardHeader>
@@ -512,7 +495,7 @@ export default function RelatoriosPage() {
                          <div className="flex flex-col items-center justify-center h-full py-10 text-center text-muted-foreground">
                             <Info size={32} className="mb-2"/>
                             <p>Nenhuma venda ou produto para analisar a lucratividade (verifique filtros ou dados de entrada).</p>
-                            <p className="text-sm">Registre vendas e entradas de estoque (com custos unitários maiores que zero e datas corretas) para ver esta análise.</p>
+                            <p className="text-sm">Registre vendas e entradas de estoque (com custos unitários maiores que zero) para ver esta análise.</p>
                         </div>
                     ) : isMounted ? (
                         <div className="overflow-x-auto">
@@ -522,14 +505,14 @@ export default function RelatoriosPage() {
                                 <TableHead>Produto</TableHead>
                                 <TableHead className="text-right">Unid. Vendidas</TableHead>
                                 <TableHead className="text-right">Receita Total (R$)</TableHead>
-                                <TableHead className="text-right">Custo Estimado Total (CMV) (R$)</TableHead>
+                                <TableHead className="text-right">Custo Total (R$)</TableHead>
                                 <TableHead className="text-right">Lucro Estimado Total (R$)</TableHead>
                                 <TableHead className="text-right">Margem Lucro (%)</TableHead>
                             </TableRow>
                             </TableHeader>
                             <TableBody>
                             {processedData.salesProfitAnalysisData.map((item) => (
-                                <TableRow key={item.productId} className={item.totalCost === 0 && item.totalSalesRecords > 0 ? "bg-destructive/5 hover:bg-destructive/10" : ""}>
+                                <TableRow key={item.productId} className={item.totalCost === 0 && item.totalSalesRecords > 0 ? "bg-orange-500/5 hover:bg-orange-500/10" : ""}>
                                 <TableCell className="font-medium">{item.productName}</TableCell>
                                 <TableCell className="text-right">{item.unitsSold}</TableCell>
                                 <TableCell className="text-right">{isMounted ? item.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : <Skeleton className="h-5 w-20 float-right" />}</TableCell>
@@ -540,9 +523,8 @@ export default function RelatoriosPage() {
                             ))}
                             </TableBody>
                             <TableCaption>
-                                Lucratividade Estimada = Receita das Vendas - Custo dos Produtos Vendidos (CMV).
-                                Se o Custo Estimado Total (CMV) for R$0,00 para um produto com vendas, verifique se as <strong className="text-primary-foreground/80">Entradas</strong> de estoque foram registradas com <strong className="text-primary-foreground/80">Custos Unitários maiores que zero</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong>.
-                                {isMounted && processedData.hasIncompleteCostingData && processedData.summaryMetrics.numberOfSalesProcessed > 0 && <span className="block mt-1 text-xs text-destructive font-semibold">Atenção: O 'Custo Total Estimado (CMV)' e o 'Lucro Total Estimado' na tabela acima podem estar incorretos para alguns produtos. Algumas vendas não tiveram custo CMV calculado. Verifique suas 'Entradas'.</span>}
+                                "Custo Total (R$)" é a soma de todas as Entradas para o produto. "Lucro Estimado" = Receita - Custo Total de Entradas.
+                                {isMounted && processedData.hasZeroCostEntries && <span className="block mt-1 text-xs text-destructive font-semibold">Atenção: O "Custo Total" de alguns produtos (e seu "Lucro Estimado") pode estar subestimado devido a 'Entradas' com "Custo Unitário" igual a zero.</span>}
                             </TableCaption>
                         </Table>
                         </div>
