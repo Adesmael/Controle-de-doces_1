@@ -111,7 +111,7 @@ export default function RelatoriosPage() {
         setRawProducts(productsFromDB);
         setRawEntries(entriesFromDB.map(e => ({ ...e, date: new Date(e.date) })));
 
-        const clients = Array.from(new Set(salesFromDB.map(s => s.customerName || s.clientId))).sort();
+        const clients = Array.from(new Set(salesFromDB.map(s => (s.customerName || s.clientId || '')).filter(Boolean))).sort();
         setUniqueClients(clients);
         
         const prods = productsFromDB.map(p => ({id: p.id, name: p.name})).sort((a,b) => a.name.localeCompare(b.name));
@@ -130,7 +130,7 @@ export default function RelatoriosPage() {
   const filteredSales = useMemo(() => {
     let tempSales = [...rawSales];
     if (selectedClient !== ALL_FILTER_VALUE) {
-       tempSales = tempSales.filter(s => (s.customerName || s.clientId) === selectedClient);
+       tempSales = tempSales.filter(s => (s.customerName || s.clientId || '') === selectedClient);
     }
     if (selectedProductFilter !== ALL_FILTER_VALUE) {
       tempSales = tempSales.filter(s => s.productId === selectedProductFilter);
@@ -194,7 +194,7 @@ export default function RelatoriosPage() {
       .map(product => ({ name: product.name, stock: product.stock }));
 
     const totalRevenueFromFilteredSales = allSalesToProcess.reduce((sum, sale) => sum + sale.totalValue, 0);
-    const uniqueCustomers = new Set(allSalesToProcess.map(sale => (sale.customerName || sale.clientId).toLowerCase().trim()));
+    const uniqueCustomers = new Set(allSalesToProcess.map(sale => (sale.customerName || sale.clientId || '').toLowerCase().trim()).filter(Boolean));
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
     
     let totalCostOfAcquisitionsForSummaryCard = 0;
@@ -561,3 +561,4 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
