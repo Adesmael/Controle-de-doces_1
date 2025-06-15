@@ -21,13 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LogIn, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, Warehouse, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Entry, EntryFormValues } from "@/lib/types";
+import type { Product, Entry, EntryFormValues, Supplier } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getProducts, getEntries, addEntry, getProductById, updateProduct, deleteEntry } from "@/lib/storage";
+import { getProducts, getEntries, addEntry, getProductById, updateProduct, deleteEntry, getSuppliers } from "@/lib/storage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,10 +43,8 @@ const entryFormSchema = z.object({
   date: z.date({
     required_error: "A data da entrada é obrigatória.",
   }),
-  supplier: z.string().min(2, {
-    message: "O nome do fornecedor deve ter pelo menos 2 caracteres.",
-  }).max(100, {
-    message: "O nome do fornecedor não pode ter mais de 100 caracteres.",
+  supplierId: z.string().min(1, {
+    message: "Selecione um fornecedor.",
   }),
   productId: z.string().min(1, {
     message: "Selecione um produto.",
@@ -63,6 +61,7 @@ export default function EntradaPage() {
   const { toast } = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [calculatedTotalCost, setCalculatedTotalCost] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,15 +71,17 @@ export default function EntradaPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [storedProducts, storedEntries] = await Promise.all([
+      const [storedProducts, storedEntries, storedSuppliers] = await Promise.all([
         getProducts(),
-        getEntries()
+        getEntries(),
+        getSuppliers()
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
       setEntries(storedEntries);
+      setSuppliersList(storedSuppliers.sort((a,b) => a.supplierName.localeCompare(b.supplierName)));
     } catch (error) {
       console.error("Failed to fetch data:", error);
-      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos ou entradas.", variant: "destructive" });
+      toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos, entradas ou fornecedores.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +96,7 @@ export default function EntradaPage() {
     resolver: zodResolver(entryFormSchema),
     defaultValues: {
       date: new Date(),
-      supplier: "",
+      supplierId: "",
       productId: "",
       quantity: 1,
       unitPrice: 0,
@@ -115,9 +116,15 @@ export default function EntradaPage() {
     setIsSubmitting(true);
     try {
       const selectedProduct = await getProductById(data.productId);
+      const selectedSupplier = suppliersList.find(s => s.id === data.supplierId);
 
       if (!selectedProduct) {
         toast({ title: "Erro", description: "Produto selecionado não encontrado.", variant: "destructive"});
+        setIsSubmitting(false);
+        return;
+      }
+      if (!selectedSupplier) {
+        toast({ title: "Erro", description: "Fornecedor selecionado não encontrado.", variant: "destructive"});
         setIsSubmitting(false);
         return;
       }
@@ -127,6 +134,7 @@ export default function EntradaPage() {
         ...data,
         totalValue: parseFloat(((data.quantity || 0) * (data.unitPrice || 0)).toFixed(2)), 
         productName: selectedProduct.name,
+        supplierName: selectedSupplier.supplierName,
       };
 
       await addEntry(newEntry);
@@ -139,13 +147,13 @@ export default function EntradaPage() {
 
       toast({
         title: "Entrada Registrada!",
-        description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${data.supplier} registrada. Estoque atualizado.`,
+        description: `Entrada de ${data.quantity}x ${selectedProduct.name} do fornecedor ${selectedSupplier.supplierName} registrada. Estoque atualizado.`,
       });
       
       await fetchData(); 
       form.reset({
         date: new Date(),
-        supplier: "",
+        supplierId: "",
         productId: "",
         quantity: 1,
         unitPrice: 0,
@@ -178,7 +186,7 @@ export default function EntradaPage() {
         }
         toast({
           title: "Entrada Excluída!",
-          description: `A entrada de ${entryToDelete.productName} foi removida. Estoque atualizado.`,
+          description: `A entrada de ${entryToDelete.productName} do fornecedor ${entryToDelete.supplierName || 'N/A'} foi removida. Estoque atualizado.`,
           variant: "destructive"
         });
         await fetchData();
@@ -203,7 +211,7 @@ export default function EntradaPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="max-w-3xl mx-auto shadow-xl">
-        <CardHeader className="bg-primary/10">
+        <CardHeader className="bg-card text-card-foreground">
           <div className="flex items-center gap-3">
             <LogIn size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
@@ -262,13 +270,24 @@ export default function EntradaPage() {
 
               <FormField
                 control={form.control}
-                name="supplier"
+                name="supplierId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><Warehouse size={16} className="mr-2"/>Fornecedor</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nome do Fornecedor" {...field} />
-                    </FormControl>
+                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um fornecedor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {suppliersList.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.supplierName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -368,7 +387,7 @@ export default function EntradaPage() {
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell>{entry.supplier}</TableCell>
+                    <TableCell>{entry.supplierName || entry.supplierId}</TableCell>
                     <TableCell>{entry.productName}</TableCell>
                     <TableCell className="text-right">{entry.quantity}</TableCell>
                     <TableCell className="text-right">R$ {entry.unitPrice.toFixed(2)}</TableCell>
@@ -392,7 +411,7 @@ export default function EntradaPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Entrada</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta entrada de "{entryToDelete?.productName}" do fornecedor "{entryToDelete?.supplier}"?
+              Tem certeza que deseja excluir esta entrada de "{entryToDelete?.productName}" do fornecedor "{entryToDelete?.supplierName || entryToDelete?.supplierId}"?
               Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -408,7 +427,3 @@ export default function EntradaPage() {
     </div>
   );
 }
-
-    
-
-    

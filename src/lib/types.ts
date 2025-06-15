@@ -18,14 +18,16 @@ export interface Promotion {
 
 export interface EntryFormValues {
   date: Date;
-  supplier: string;
+  supplierId: string; // Changed from supplier: string
   productId: string;
   quantity: number;
   unitPrice: number; // Represents the cost per unit (Custo Unitário)
 }
 
-export interface Entry extends EntryFormValues {
+export interface Entry extends Omit<EntryFormValues, 'supplierId'> { // Omit supplierId from here as it's directly in EntryFormValues
   id: string;
+  supplierId: string; // Explicitly add supplierId
+  supplierName?: string; // Added for display
   totalValue: number; // Represents total cost (quantity * unitPrice)
   productName?: string;
 }
