@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, Loader2, CalendarDays, Receipt, ShoppingBag, AlertTriangle, Filter, Warehouse } from "lucide-react";
+import { BarChart3, TrendingUp, Package, Users, DollarSign, Info, FileText, Loader2, CalendarDays, Receipt, ShoppingBag, AlertTriangle, Filter, Warehouse, TrendingDown } from "lucide-react";
 import { BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
@@ -43,7 +43,7 @@ interface StockLevelData {
 
 interface SummaryMetrics {
   totalRevenue: number;
-  totalCostOfAcquisitions: number; // Renamed from totalCostOfAllEntries
+  totalCostOfAcquisitions: number;
   totalProfitAllProducts: number;
   activeCustomers: number;
   lowStockItemsCount: number;
@@ -199,15 +199,18 @@ export default function RelatoriosPage() {
     
     let totalCostOfAcquisitionsForSummaryCard = 0;
     if (selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE) {
-      totalCostOfAcquisitionsForSummaryCard = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
+        // If no filters, sum all entries
+        totalCostOfAcquisitionsForSummaryCard = rawEntries.reduce((sum, entry) => sum + entry.totalValue, 0);
     } else {
-      const productIdsInFilteredSales = new Set(allSalesToProcess.map(sale => sale.productId));
-      if (productIdsInFilteredSales.size > 0) {
-        const relevantEntriesForCostCard = rawEntries.filter(entry => productIdsInFilteredSales.has(entry.productId));
-        totalCostOfAcquisitionsForSummaryCard = relevantEntriesForCostCard.reduce((sum, entry) => sum + entry.totalValue, 0);
-      } else {
-        totalCostOfAcquisitionsForSummaryCard = 0; // No sales means no related products to sum costs for
-      }
+        // If filters are active, sum entries for products present in filteredSales
+        const productIdsInFilteredSales = new Set(allSalesToProcess.map(sale => sale.productId));
+        if (productIdsInFilteredSales.size > 0) {
+            const relevantEntriesForCostCard = rawEntries.filter(entry => productIdsInFilteredSales.has(entry.productId));
+            totalCostOfAcquisitionsForSummaryCard = relevantEntriesForCostCard.reduce((sum, entry) => sum + entry.totalValue, 0);
+        } else {
+             // No sales match the filter, so cost related to those non-existent sales is 0
+            totalCostOfAcquisitionsForSummaryCard = 0;
+        }
     }
     
     const profitForSummaryCard = totalRevenueFromFilteredSales - totalCostOfAcquisitionsForSummaryCard;
@@ -216,7 +219,7 @@ export default function RelatoriosPage() {
     let systemHasZeroCostEntriesForTable = false;
     rawEntries.forEach(entry => {
       productTotalEntryCosts[entry.productId] = (productTotalEntryCosts[entry.productId] || 0) + entry.totalValue;
-      if (entry.unitPrice === 0 && entry.productId) { // Check productId to ensure it's a valid entry for a product
+      if (entry.unitPrice === 0 && entry.productId) {
         systemHasZeroCostEntriesForTable = true;
       }
     });
@@ -365,7 +368,7 @@ export default function RelatoriosPage() {
                     <CardContent>
                          <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalCostOfAcquisitions.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
                         <p className="text-xs text-muted-foreground">
-                          Custo total de aquisição (Entradas). Se filtros ativos, refere-se aos produtos nas vendas filtradas. Senão, total de todas as Entradas.
+                            Soma de todas as Entradas. Se filtros ativos, soma das Entradas dos produtos nas vendas filtradas.
                         </p>
                     </CardContent>
                 </Card>
@@ -572,5 +575,7 @@ export default function RelatoriosPage() {
     </div>
   );
 }
+
+    
 
     
