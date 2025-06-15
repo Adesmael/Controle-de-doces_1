@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 
 const navLinks = [
@@ -29,6 +29,11 @@ const navLinks = [
 const Header = () => {
   const isMobile = useIsMobile();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
@@ -82,7 +87,22 @@ const Header = () => {
     </Sheet>
   );
 
+  // Render a consistent structure on the server and for the initial client render
+  if (!hasMounted) {
+    return (
+      <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
+            <Banana size={32} className="mr-1"/> {/* Default to desktop size for SSR */}
+            Controle de Doces
+          </Link>
+          <DesktopNav /> {/* Always render DesktopNav for SSR consistency */}
+        </div>
+      </header>
+    );
+  }
 
+  // After mounting, we can safely use the actual `isMobile` value
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
