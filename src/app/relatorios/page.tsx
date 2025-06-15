@@ -80,6 +80,7 @@ const dailySalesChartConfig = {
   },
 } satisfies ChartConfig
 
+const ALL_FILTER_VALUE = "_ALL_"; // Constant for "All" filter options
 
 export default function RelatoriosPage() {
   const [rawSales, setRawSales] = useState<Sale[]>([]);
@@ -89,12 +90,12 @@ export default function RelatoriosPage() {
   const [uniqueClients, setUniqueClients] = useState<string[]>([]);
   const [availableProducts, setAvailableProducts] = useState<{id: string, name: string}[]>([]);
 
-  const [selectedClient, setSelectedClient] = useState<string>("");
-  const [selectedProductFilter, setSelectedProductFilter] = useState<string>(""); // Renamed to avoid conflict
+  const [selectedClient, setSelectedClient] = useState<string>(ALL_FILTER_VALUE);
+  const [selectedProductFilter, setSelectedProductFilter] = useState<string>(ALL_FILTER_VALUE);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
-  const [hasIncompleteCostingData, setHasIncompleteCostingData] = useState(false); // Renamed
+  const [hasIncompleteCostingData, setHasIncompleteCostingData] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function RelatoriosPage() {
         setAvailableProducts(prods);
 
       } catch (error) {
+        // DETAILED COST DEBUG: console.error("Erro ao carregar dados base para relatórios:", error);
         toast({ title: "Erro ao Carregar Dados Base", description: "Não foi possível buscar os dados para os filtros e relatórios.", variant: "destructive" });
       } finally {
         setIsLoading(false);
@@ -130,10 +132,10 @@ export default function RelatoriosPage() {
 
   const filteredSales = useMemo(() => {
     let tempSales = [...rawSales];
-    if (selectedClient) {
+    if (selectedClient !== ALL_FILTER_VALUE) {
       tempSales = tempSales.filter(s => s.customer === selectedClient);
     }
-    if (selectedProductFilter) {
+    if (selectedProductFilter !== ALL_FILTER_VALUE) {
       tempSales = tempSales.filter(s => s.productId === selectedProductFilter);
     }
     return tempSales;
@@ -158,10 +160,10 @@ export default function RelatoriosPage() {
     let costCouldNotBeCalculatedForAnySale = false;
     let salesWithCostCount = 0;
     
-    // DETAILED COST DEBUG: console.groupCollapsed("--- DETAILED COST CALCULATION LOG ---");
-    // DETAILED COST DEBUG: console.log("Starting cost calculation. Total sales to process:", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Total products in DB:", productsFromDB.length);
-    // DETAILED COST DEBUG: console.log("Total entries in DB (sorted):", sortedEntries.length, sortedEntries.slice(0,3));
+    // DETAILED COST DEBUG: console.groupCollapsed("--- RELATORIOS (SUMÁRIO): CÁLCULO DE CUSTO DETALHADO ---");
+    // DETAILED COST DEBUG: console.log("Iniciando cálculo de custo. Vendas a processar (após filtros):", allSalesToProcess.length);
+    // DETAILED COST DEBUG: console.log("Produtos no DB:", productsFromDB.length);
+    // DETAILED COST DEBUG: console.log("Entradas no DB (ordenadas):", sortedEntries.length);
 
 
     const monthlySalesAgg: { [key: string]: number } = {};
@@ -217,12 +219,12 @@ export default function RelatoriosPage() {
     let overallTotalCostOfGoodsSold = 0;
 
     allSalesToProcess.forEach(sale => {
-      // DETAILED COST DEBUG: console.groupCollapsed(`Processing Sale ID: ${sale.id} for Product ID: ${sale.productId} (${sale.productName || 'N/A'})`);
-      // DETAILED COST DEBUG: console.log(`Sale Date: ${sale.date.toISOString()}, Quantity: ${sale.quantity}, Sale Value: ${sale.totalValue}`);
+      // DETAILED COST DEBUG: console.groupCollapsed(`--- VENDA ID: ${sale.id} para PRODUTO ID: ${sale.productId} (${sale.productName || 'N/A'}) ---`);
+      // DETAILED COST DEBUG: console.log(`Data da Venda: ${sale.date.toISOString()}, Quantidade: ${sale.quantity}, Valor da Venda: ${sale.totalValue}`);
 
       const analysis = productAnalysisMap.get(sale.productId);
       if (!analysis) {
-          // DETAILED COST DEBUG: console.warn(`Product ID ${sale.productId} from sale not found in productAnalysisMap. Skipping cost for this sale item.`);
+          // DETAILED COST DEBUG: console.warn(`Produto ID ${sale.productId} da venda não encontrado no productAnalysisMap. Pulando custo para este item da venda.`);
           // DETAILED COST DEBUG: console.groupEnd();
           return;
       }
@@ -231,53 +233,53 @@ export default function RelatoriosPage() {
       analysis.totalSalesRecords +=1;
 
       const currentSaleDateTime = sale.date.getTime();
-      // DETAILED COST DEBUG: console.log("Sale DateTime (ms):", currentSaleDateTime);
+      // DETAILED COST DEBUG: console.log("Timestamp da Venda (ms):", currentSaleDateTime);
       
       const entriesForThisProduct = sortedEntries.filter(entry => entry.productId === sale.productId);
-      // DETAILED COST DEBUG: console.log(`Found ${entriesForThisProduct.length} entries TOTAL for product ID ${sale.productId}:`, entriesForThisProduct.map(e => ({id: e.id, date: e.date.toISOString(), unitPrice: e.unitPrice, quantity: e.quantity })));
+      // DETAILED COST DEBUG: console.log(`Encontradas ${entriesForThisProduct.length} entradas TOTAIS para o produto ID ${sale.productId}:`, entriesForThisProduct.map(e => ({id: e.id, data: e.date.toISOString(), custoUnit: e.unitPrice, qtd: e.quantity })));
 
 
       const relevantEntries = entriesForThisProduct.filter(entry => {
         const entryDateOk = entry.date.getTime() <= currentSaleDateTime;
         const entryCostOk = entry.unitPrice > 0;
-        // DETAILED COST DEBUG: console.log(`  Checking Entry ID: ${entry.id} (Date: ${entry.date.toISOString()}, Cost: ${entry.unitPrice}) -> Date OK? ${entryDateOk}, Cost OK? ${entryCostOk}`);
+        // DETAILED COST DEBUG: console.log(`  Verificando Entrada ID: ${entry.id} (Data: ${entry.date.toISOString()}, Custo: ${entry.unitPrice}) -> Data OK? ${entryDateOk}, Custo OK? ${entryCostOk}`);
         return entryDateOk && entryCostOk;
       });
       
-      // DETAILED COST DEBUG: console.log(`Found ${relevantEntries.length} RELEVANT entries (date <= sale date AND unitPrice > 0):`, relevantEntries.map(re => ({id: re.id, date: re.date.toISOString(), unitPrice: re.unitPrice })));
+      // DETAILED COST DEBUG: console.log(`Encontradas ${relevantEntries.length} entradas RELEVANTES (data <= data da venda E custoUnit > 0):`, relevantEntries.map(re => ({id: re.id, data: re.date.toISOString(), custoUnit: re.unitPrice })));
 
       if (relevantEntries.length > 0) {
-        // relevantEntries is already sorted by date ASC because sortedEntries was.
-        // The last one is the latest relevant entry.
+        // relevantEntries já está ordenada por data ASC porque sortedEntries estava.
+        // A última é a entrada relevante mais recente.
         const latestRelevantEntry = relevantEntries[relevantEntries.length - 1]; 
-        // DETAILED COST DEBUG: console.log(`Latest relevant entry SELECTED: ID ${latestRelevantEntry.id}, Date: ${latestRelevantEntry.date.toISOString()}, Unit Cost: ${latestRelevantEntry.unitPrice}`);
+        // DETAILED COST DEBUG: console.log(`Entrada relevante MAIS RECENTE SELECIONADA: ID ${latestRelevantEntry.id}, Data: ${latestRelevantEntry.date.toISOString()}, Custo Unitário: ${latestRelevantEntry.unitPrice}`);
         const costForThisSale = latestRelevantEntry.unitPrice * sale.quantity;
         analysis.totalCost += costForThisSale;
         overallTotalCostOfGoodsSold += costForThisSale;
         salesWithCostCount++;
-        // DETAILED COST DEBUG: console.log(`Cost for this sale item: ${costForThisSale.toFixed(2)}. Product analysis totalCost updated to: ${analysis.totalCost.toFixed(2)}`);
+        // DETAILED COST DEBUG: console.log(`Custo para este item da venda: ${costForThisSale.toFixed(2)}. Custo total acumulado para o produto: ${analysis.totalCost.toFixed(2)}`);
       } else {
-        // DETAILED COST DEBUG: console.warn(`NO valid (cost > 0 and date <= sale date) entry found for Product ID ${sale.productId} for this sale (ID ${sale.id}). Cost for this sale item will be 0.`);
+        // DETAILED COST DEBUG: console.warn(`NENHUMA entrada válida (custo > 0 e data <= data da venda) encontrada para o Produto ID ${sale.productId} para esta venda (ID ${sale.id}). Custo para este item da venda será R$0,00.`);
         costCouldNotBeCalculatedForAnySale = true;
       }
       // DETAILED COST DEBUG: console.groupEnd();
     });
     
     const processedProductProfitData: SalesProfitData[] = Array.from(productAnalysisMap.values())
-      .filter(analysis => selectedProductFilter ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
+      .filter(analysis => selectedProductFilter !== ALL_FILTER_VALUE ? analysis.productId === selectedProductFilter : analysis.totalSalesRecords > 0) 
       .map(analysis => {
         const totalProfit = analysis.totalRevenue - analysis.totalCost;
         const profitMargin = analysis.totalRevenue > 0 ? (totalProfit / analysis.totalRevenue) * 100 : 0;
         return { ...analysis, totalProfit, profitMargin: parseFloat(profitMargin.toFixed(2)) };
       }).sort((a, b) => b.totalProfit - a.totalProfit);
     
-    // DETAILED COST DEBUG: console.log("--- FINAL COST SUMMARY ---");
-    // DETAILED COST DEBUG: console.log("Overall Total Revenue:", totalRevenue.toFixed(2));
-    // DETAILED COST DEBUG: console.log("Overall Total Cost of Goods Sold:", overallTotalCostOfGoodsSold.toFixed(2));
-    // DETAILED COST DEBUG: console.log("Overall Total Profit (Revenue - Cost):", (totalRevenue - overallTotalCostOfGoodsSold).toFixed(2));
-    // DETAILED COST DEBUG: console.log("Number of sales fully costed:", salesWithCostCount, "out of", allSalesToProcess.length);
-    // DETAILED COST DEBUG: console.log("Was any sale not fully costed?", costCouldNotBeCalculatedForAnySale);
-    // DETAILED COST DEBUG: console.log("Product Profit Data:", processedProductProfitData);
+    // DETAILED COST DEBUG: console.log("--- RELATORIOS (SUMÁRIO): RESUMO FINAL DO CUSTO ---");
+    // DETAILED COST DEBUG: console.log("Receita Total (Vendas):", totalRevenue.toFixed(2));
+    // DETAILED COST DEBUG: console.log("Custo Total Estimado (CMV):", overallTotalCostOfGoodsSold.toFixed(2));
+    // DETAILED COST DEBUG: console.log("Lucro Total Estimado (Receita - Custo):", (totalRevenue - overallTotalCostOfGoodsSold).toFixed(2));
+    // DETAILED COST DEBUG: console.log("Número de registros de venda com custo calculado:", salesWithCostCount, "de", allSalesToProcess.length);
+    // DETAILED COST DEBUG: console.log("Algum item de venda não teve custo calculado?", costCouldNotBeCalculatedForAnySale);
+    // DETAILED COST DEBUG: console.log("Dados de Lucratividade por Produto (processados):", processedProductProfitData);
     // DETAILED COST DEBUG: console.groupEnd();
 
     return {
@@ -316,17 +318,20 @@ export default function RelatoriosPage() {
     if (!isLoading && isMounted && data.length === 0) {
       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
     }
-    if (isLoading && isMounted) { return <div className={`flex flex-col items-center justify-center ${minHeight} py-10`}><Skeleton className="w-full h-full" /></div>; }
+    if (isLoading && isMounted && data.length > 0 && !processedData.summaryMetrics.totalRevenue) { // Specific check if filters result in no data after loading
+       return <div className={`text-center text-muted-foreground py-10 flex flex-col items-center justify-center ${minHeight}`}><Info size={32} className="mb-2"/><p>{message}</p></div>;
+    }
+    if (isLoading && isMounted) { return <div className={`flex flex-col items-center justify-center ${minHeight} py-10`}><Skeleton className="w-full h-full" /></div>; } // Loading state after mount but before data processing is complete for charts
     return <div className={minHeight}>{chartComponent}</div>;
   };
 
   const handleClearFilters = () => {
-    setSelectedClient("");
-    setSelectedProductFilter("");
+    setSelectedClient(ALL_FILTER_VALUE);
+    setSelectedProductFilter(ALL_FILTER_VALUE);
   };
 
 
-  if (isLoading && !isMounted) {
+  if (isLoading && !isMounted) { // Initial loading state before any data fetching or processing
     return <div className="container mx-auto py-8 text-center"><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> <p className="mt-2 text-muted-foreground">Carregando relatórios...</p></div>;
   }
 
@@ -353,10 +358,10 @@ export default function RelatoriosPage() {
                         <label htmlFor="client-filter" className="block text-sm font-medium text-foreground mb-1">Filtrar por Cliente:</label>
                         <Select value={selectedClient} onValueChange={setSelectedClient}>
                             <SelectTrigger id="client-filter">
-                                <SelectValue placeholder="Todos os Clientes" />
+                                <SelectValue placeholder="Selecione um Cliente" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Todos os Clientes</SelectItem>
+                                <SelectItem value={ALL_FILTER_VALUE}>Todos os Clientes</SelectItem>
                                 {uniqueClients.map(client => <SelectItem key={client} value={client}>{client}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -365,17 +370,17 @@ export default function RelatoriosPage() {
                         <label htmlFor="product-filter" className="block text-sm font-medium text-foreground mb-1">Filtrar por Produto:</label>
                         <Select value={selectedProductFilter} onValueChange={setSelectedProductFilter}>
                             <SelectTrigger id="product-filter">
-                                <SelectValue placeholder="Todos os Produtos" />
+                                <SelectValue placeholder="Selecione um Produto" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Todos os Produtos</SelectItem>
+                                <SelectItem value={ALL_FILTER_VALUE}>Todos os Produtos</SelectItem>
                                 {availableProducts.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={handleClearFilters} variant="outline" size="sm" disabled={!selectedClient && !selectedProductFilter}>Limpar Filtros</Button>
+                    <Button onClick={handleClearFilters} variant="outline" size="sm" disabled={selectedClient === ALL_FILTER_VALUE && selectedProductFilter === ALL_FILTER_VALUE}>Limpar Filtros</Button>
                 </CardFooter>
             </Card>
 
@@ -384,35 +389,35 @@ export default function RelatoriosPage() {
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Receita Total (Vendas)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Valor total de todas as vendas (Saídas) registradas {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Valor total de todas as vendas (Saídas) registradas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Custo Total Estimado (CMV)</CardTitle><Receipt className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                          <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalCostOfGoodsSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Custo dos produtos vendidos, baseado no 'Custo Unitário' das Entradas {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Custo dos produtos vendidos, baseado no 'Custo Unitário' das Entradas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Lucro Total Estimado</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-32" /> : isMounted ? `R$ ${processedData.summaryMetrics.totalProfitAllProducts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <Skeleton className="h-8 w-32" />}</div>
-                        <p className="text-xs text-muted-foreground">Receita Total - Custo Total Estimado {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Receita Total - Custo Total Estimado {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                  <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Vendas (Unidades)</CardTitle><ShoppingBag className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-16" /> : isMounted ? processedData.summaryMetrics.totalUnitsSold : <Skeleton className="h-8 w-16" />}</div>
-                        <p className="text-xs text-muted-foreground">Unidades vendidas {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Unidades vendidas {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{isLoading && !isMounted ? <Skeleton className="h-8 w-12" /> : isMounted ? processedData.summaryMetrics.activeCustomers : <Skeleton className="h-8 w-12" />}</div>
-                        <p className="text-xs text-muted-foreground">Clientes que compraram {selectedClient || selectedProductFilter ? "(baseado no filtro)" : "(geral)"}.</p>
+                        <p className="text-xs text-muted-foreground">Clientes que compraram {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(baseado no filtro)" : "(geral)"}.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-card/70">
@@ -429,15 +434,15 @@ export default function RelatoriosPage() {
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Atenção ao Cálculo de Custo!</AlertTitle>
                     <AlertDescription>
-                        Para {processedData.summaryMetrics.numberOfSalesProcessed - processedData.summaryMetrics.numberOfSalesWithCost} de {processedData.summaryMetrics.numberOfSalesProcessed} vendas processadas (com os filtros atuais), o custo não pôde ser determinado. 
-                        Isso significa que o "Custo Estimado Total" e o "Lucro Estimado Total" podem estar SUBESTIMADOS.
+                        Para <strong className="font-semibold">{processedData.summaryMetrics.numberOfSalesProcessed - processedData.summaryMetrics.numberOfSalesWithCost} de {processedData.summaryMetrics.numberOfSalesProcessed}</strong> vendas processadas (com os filtros atuais), o custo não pôde ser determinado. 
+                        Isso significa que o "Custo Estimado Total" e o "Lucro Estimado Total" podem estar <strong className="font-semibold">SUBESTIMADOS</strong>.
                         <br /><strong>Verifique seus lançamentos de 'Entrada':</strong>
-                        <ul className="list-disc pl-5 mt-1 text-xs">
-                            <li>O produto vendido possui uma 'Entrada' correspondente (mesmo ID de produto)?</li>
-                            <li>O 'Custo Unitário' na 'Entrada' é **MAIOR QUE ZERO**?</li>
-                            <li>A 'Data da Entrada' é **ANTERIOR ou IGUAL** à data da venda?</li>
+                        <ul className="list-disc pl-5 mt-1 text-xs space-y-0.5">
+                            <li>O produto vendido possui uma 'Entrada' correspondente (o ID do produto deve ser o mesmo)?</li>
+                            <li>O 'Custo Unitário' na 'Entrada' (o preço que você pagou pelo produto) é <strong>MAIOR QUE ZERO</strong>?</li>
+                            <li>A 'Data da Entrada' é <strong>ANTERIOR ou IGUAL</strong> à data da venda?</li>
                         </ul>
-                         Para depurar, DESCOMENTE as linhas `// DETAILED COST DEBUG:` em `src/app/relatorios/page.tsx` e verifique o console do navegador.
+                         <p className="mt-2 text-xs">Para depurar, DESCOMENTE as linhas `// DETAILED COST DEBUG:` no arquivo `src/app/relatorios/page.tsx` e verifique o console do navegador (F12) para rastrear o cálculo de cada venda.</p>
                     </AlertDescription>
                 </Alert>
             )}
@@ -445,18 +450,18 @@ export default function RelatoriosPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><TrendingUp size={20} className="text-primary" />Vendas Mensais (R$)</CardTitle><CardDescription>Total de vendas nos últimos 6 meses {selectedClient || selectedProductFilter ? "(filtrado)" : ""}.</CardDescription></CardHeader>
+                    <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><TrendingUp size={20} className="text-primary" />Vendas Mensais (R$)</CardTitle><CardDescription>Total de vendas nos últimos 6 meses {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : ""}.</CardDescription></CardHeader>
                     <CardContent>
                     {renderChartOrMessage(processedData.monthlySales,
                         <ChartContainer config={salesChartConfig} className="h-full w-full">
                         <ResponsiveContainer width="100%" height={350}>
-                          <BarChart accessibilityLayer data={processedData.monthlySales} margin={{ top: 20, right: 0, left: -20, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <BarChart accessibilityLayer data={processedData.monthlySales} margin={{ top: 25, right: 5, left: -20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
                               <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                              <YAxis tickFormatter={(value) => isMounted ? `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ""} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                              <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.5)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
-                              <ChartLegend content={<ChartLegendContent />} />
-                              <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} >
+                              <YAxis tickFormatter={chartCurrencyLabelFormatter} stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                              <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.3)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
+                              <ChartLegend content={<ChartLegendContent className="text-xs"/>} />
+                              <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} barSize={40}>
                                 <LabelList dataKey="sales" position="top" style={{ fontSize: '11px', fill: 'hsl(var(--foreground))' }} formatter={chartSmallCurrencyLabelFormatter} dy={-4}/>
                               </Bar>
                           </BarChart>
@@ -468,18 +473,18 @@ export default function RelatoriosPage() {
                 </Card>
 
                 <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><Package size={20} className="text-accent" />Produtos Mais Vendidos (Unidades)</CardTitle><CardDescription>Top 5 produtos mais vendidos em unidades {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}.</CardDescription></CardHeader>
+                    <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><Package size={20} className="text-accent" />Produtos Mais Vendidos (Unidades)</CardTitle><CardDescription>Top 5 produtos mais vendidos em unidades {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}.</CardDescription></CardHeader>
                     <CardContent>
                     {renderChartOrMessage(processedData.topProductsChartData,
                         <ChartContainer config={topProductsChartConfig} className="h-full w-full">
                           <ResponsiveContainer width="100%" height={350}>
-                            <BarChart accessibilityLayer data={processedData.topProductsChartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                            <BarChart accessibilityLayer data={processedData.topProductsChartData} layout="vertical" margin={{ top: 5, right: 35, left: 20, bottom: 5 }} barCategoryGap="20%">
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border)/0.5)" />
                                 <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={5} width={120} interval={0} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                                <XAxis dataKey="sales" type="number" stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                                <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.5)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
-                                <ChartLegend content={<ChartLegendContent />} />
-                                <Bar dataKey="sales" fill="var(--color-sales)" radius={[0, 4, 4, 0]}>
+                                <XAxis dataKey="sales" type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                                <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.3)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
+                                <ChartLegend content={<ChartLegendContent className="text-xs"/>} />
+                                <Bar dataKey="sales" fill="var(--color-sales)" radius={[0, 4, 4, 0]} barSize={30}>
                                   <LabelList dataKey="sales" position="right" offset={8} style={{ fontSize: '11px', fill: 'hsl(var(--foreground))' }} formatter={chartLabelFormatter} />
                                 </Bar>
                             </BarChart>
@@ -492,18 +497,18 @@ export default function RelatoriosPage() {
             </div>
 
             <Card className="mt-6">
-                <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><CalendarDays size={20} className="text-purple-500" />Vendas Diárias (R$)</CardTitle><CardDescription>Total de vendas nos últimos 30 dias {selectedClient || selectedProductFilter ? "(filtrado)" : ""}.</CardDescription></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-lg font-headline flex items-center gap-2"><CalendarDays size={20} className="text-chart-2" />Vendas Diárias (R$)</CardTitle><CardDescription>Total de vendas nos últimos 30 dias {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : ""}.</CardDescription></CardHeader>
                 <CardContent>
                 {renderChartOrMessage(processedData.dailySales,
                     <ChartContainer config={dailySalesChartConfig} className="h-full w-full">
                     <ResponsiveContainer width="100%" height={350}>
-                        <BarChart accessibilityLayer data={processedData.dailySales} margin={{ top: 20, right: 0, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <BarChart accessibilityLayer data={processedData.dailySales} margin={{ top: 25, right: 5, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border)/0.5)" />
                             <XAxis dataKey="dateDisplay" tickLine={false} tickMargin={10} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                            <YAxis tickFormatter={(value) => isMounted ? `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ""} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                            <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.5)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
-                            <ChartLegend content={<ChartLegendContent />} />
-                            <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]}>
+                            <YAxis tickFormatter={chartCurrencyLabelFormatter} stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                            <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.3)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
+                            <ChartLegend content={<ChartLegendContent className="text-xs"/>} />
+                            <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} barSize={30}>
                                 <LabelList dataKey="sales" position="top" style={{ fontSize: '11px', fill: 'hsl(var(--foreground))' }} formatter={chartSmallCurrencyLabelFormatter} dy={-4}/>
                             </Bar>
                         </BarChart>
@@ -519,7 +524,8 @@ export default function RelatoriosPage() {
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-lg font-headline flex items-center gap-2"><FileText size={20} className="text-indigo-500" />Análise de Lucratividade por Produto</CardTitle>
                         <CardDescription className="text-primary-foreground/80">
-                            Detalhes de receita, custo e lucro por produto {selectedClient || selectedProductFilter ? "(filtrado)" : "(geral)"}. Lucro = Receita - Custo Estimado.
+                            Detalhes de receita, custo e lucro por produto {(selectedClient !== ALL_FILTER_VALUE || selectedProductFilter !== ALL_FILTER_VALUE) ? "(filtrado)" : "(geral)"}. Lucro = Receita - Custo Estimado.
+                            <br/>O "Custo Total Estimado" é crucial para este cálculo. Se estiver R$ 0,00, o Lucro será igual à Receita, o que geralmente indica um problema na entrada de dados de custo.
                         </CardDescription>
                     </div>
                     <div className="mt-4 text-sm text-primary-foreground/80 border-2 border-dashed border-primary/30 p-4 rounded-md bg-primary/5">
@@ -528,10 +534,10 @@ export default function RelatoriosPage() {
                         <p className="mb-2 text-xs">Se o "Custo Estimado" estiver <strong className="text-primary-foreground">R$ 0,00</strong> para um produto na tabela abaixo (e ele teve vendas), verifique se as seguintes condições foram atendidas para CADA VENDA daquele produto:</p>
                         <ol className="list-decimal list-inside text-xs space-y-1.5 pl-2">
                             <li><strong className="text-primary-foreground">PRODUTO CORRETO NA ENTRADA:</strong> Deve existir um registro de 'Entrada' para <strong className="underline">ESSE MESMO PRODUTO</strong> no sistema (o ID do produto deve ser o mesmo).</li>
-                            <li><strong className="text-primary-foreground">CUSTO UNITÁRIO &gt; 0 NA ENTRADA:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' <strong className="underline">DEVE SER O PREÇO QUE VOCÊ PAGOU PELO PRODUTO</strong>. Este valor <strong className="underline">NÃO PODE SER ZERO</strong>.</li>
+                            <li><strong className="text-primary-foreground">CUSTO UNITÁRIO &gt; 0 NA ENTRADA:</strong> Na tela de 'Entrada', o campo 'Custo Unitário' (o preço que você pagou pelo produto) <strong className="underline">DEVE SER MAIOR QUE ZERO</strong>.</li>
                             <li><strong className="text-primary-foreground">DATA DA ENTRADA CORRETA:</strong> A 'Data da Entrada' do custo deve ser <strong className="underline">ANTERIOR ou IGUAL</strong> à 'Data da Saída' (venda) do produto. O sistema usa a entrada de custo mais recente que atenda essa condição.</li>
                         </ol>
-                         <p className="mt-3 text-xs"><strong className="text-primary-foreground">DEPURAÇÃO AVANÇADA:</strong> Se, após verificar, o custo ainda não aparecer, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`). Abra o console do navegador (F12) para ver como os dados são processados e quais entradas são (ou não) consideradas.</p>
+                         <p className="mt-3 text-xs"><strong className="text-primary-foreground">DEPURAÇÃO AVANÇADA:</strong> Se, após verificar, o custo ainda não aparecer, DESCOMENTE as linhas `// DETAILED COST DEBUG:` neste arquivo (`src/app/relatorios/page.tsx`). Abra o console do navegador (F12) para ver como os dados são processados e quais entradas são (ou não) consideradas. Isso ajudará a identificar se o problema é com a data da entrada, o custo unitário, o ID do produto, ou outra questão nos dados.</p>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -571,7 +577,7 @@ export default function RelatoriosPage() {
                             <TableCaption>
                                 Lucratividade estimada = Receita das Vendas - Custo das Entradas.
                                 Se o Custo Estimado Total for R$0,00 para um produto com vendas, verifique se as Entradas de estoque foram registradas com <strong className="text-primary-foreground/80">Custos (Custo Unitário &gt; 0)</strong> e <strong className="text-primary-foreground/80">Datas corretas (anteriores ou iguais às vendas)</strong>.
-                                {isMounted && processedData.hasIncompleteCosting && <span className="block mt-1 text-xs text-destructive">Atenção: Para algumas vendas, o custo não pôde ser determinado. Verifique os critérios de entrada e os logs de depuração (descomente "// DETAILED COST DEBUG:" no código).</span>}
+                                {isMounted && processedData.hasIncompleteCosting && <span className="block mt-1 text-xs text-destructive">Atenção: Para algumas vendas, o custo não pôde ser determinado. Verifique os critérios de entrada. DESCOMENTE as linhas "// DETAILED COST DEBUG:" no código e use o console do navegador (F12) para depurar.</span>}
                             </TableCaption>
                         </Table>
                         </div>
@@ -588,13 +594,13 @@ export default function RelatoriosPage() {
                 {renderChartOrMessage(processedData.stockLevels,
                     <ChartContainer config={stockChartConfig} className="h-full w-full">
                       <ResponsiveContainer width="100%" height={300}>
-                        <BarChart accessibilityLayer data={processedData.stockLevels} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <BarChart accessibilityLayer data={processedData.stockLevels} layout="vertical" margin={{ top: 5, right: 35, left: 20, bottom: 5 }} barCategoryGap="20%">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border)/0.5)" />
                             <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={5} width={120} interval={0} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                            <XAxis dataKey="stock" type="number" domain={[0, 'dataMax + 2']} stroke="hsl(var(--muted-foreground))" fontSize={12}/>
-                            <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.5)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
-                            <ChartLegend content={<ChartLegendContent />} />
-                            <Bar dataKey="stock" fill="var(--color-stock)" radius={[0, 4, 4, 0]}>
+                            <XAxis dataKey="stock" type="number" domain={[0, 'dataMax + 2']} stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                            <ChartTooltip cursor={{fill: "hsla(var(--muted), 0.3)"}} content={<ChartTooltipContent labelClassName="font-semibold" />} />
+                            <ChartLegend content={<ChartLegendContent className="text-xs"/>} />
+                            <Bar dataKey="stock" fill="var(--color-stock)" radius={[0, 4, 4, 0]} barSize={25}>
                                <LabelList dataKey="stock" position="right" offset={8} style={{ fontSize: '11px', fill: 'hsl(var(--foreground))' }} formatter={chartLabelFormatter} />
                             </Bar>
                         </BarChart>
