@@ -88,16 +88,17 @@ const Header = () => {
   );
 
   // Render a consistent structure on the server and for the initial client render
+  // You can adjust py-2 (vertical padding) and px-4 (horizontal padding of content) on the div below to change header dimensions.
+  // Icon sizes (e.g., Banana size={32}) also contribute to height.
   if (!hasMounted) {
     return (
       <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="container mx-auto px-4 py-2 flex justify-between items-center"> {/* Adjusted py-3 to py-2 */}
           <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
-            <Banana size={32} className="mr-1"/> {/* Default to desktop size for SSR */}
+            <Banana size={32} className="mr-1"/>
             <span>Controle de Doces</span>
           </Link>
-          {/* Fallback for SSR: Render DesktopNav structure */}
-          <nav className="flex items-center space-x-1 bg-primary">
+          <nav className="hidden md:flex items-center space-x-1 bg-primary">
             {navLinks.map(link => {
                 const Icon = link.icon;
                 const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
@@ -117,9 +118,11 @@ const Header = () => {
   }
 
   // After mounting, we can safely use the actual `isMobile` value
+  // You can adjust py-2 (vertical padding) and px-4 (horizontal padding of content) on the div below to change header dimensions.
+  // Icon sizes (e.g., Banana size={isMobile ? 28 : 32}) also contribute to height.
   return (
     <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div className="container mx-auto px-4 py-2 flex justify-between items-center"> {/* Adjusted py-3 to py-2 */}
         <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
           <Banana size={isMobile ? 28 : 32} className="mr-1"/>
           <span>Controle de Doces</span>
