@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings } from 'lucide-react';
+import { Banana, LayoutGrid, ArrowRightLeft, Package, BarChart3, Settings, FileSpreadsheet } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -21,6 +21,7 @@ const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { href: "/relatorios-detalhados", label: "Relatórios Detalhados", icon: FileSpreadsheet },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -34,7 +35,7 @@ const Header = () => {
     <nav className="flex items-center space-x-1">
       {navLinks.map(link => (
         <Button key={link.href} variant="ghost" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/80 btn-animated">
-          <Link href={link.href} className="flex items-center gap-1.5">
+          <Link href={link.href} className="flex items-center gap-1.5 px-2">
             <link.icon size={16} />
             {link.label}
           </Link>
@@ -87,3 +88,4 @@ const Header = () => {
 };
 
 export default Header;
+
