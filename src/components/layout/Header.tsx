@@ -14,13 +14,13 @@ import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
 
-// Define navLinks once at the top level
+// Define navLinks ONCE at the top level with the correct order and labels
 const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/entrada", label: "Compras", icon: ArrowRightLeft },
-  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },
+  { href: "/saida", label: "Vendas", icon: ArrowRightLeft }, // Icon will be flipped for "Vendas"
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
