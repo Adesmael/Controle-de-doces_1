@@ -14,7 +14,7 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
+  FormLabel as RHFFormLabel, // Renamed to avoid conflict
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"; // Basic chart components
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
+import { Label } from "@/components/ui/label"; // Import standard Label
 
 
 const financialTransactionFormSchema = z.object({
@@ -291,7 +292,7 @@ export default function FinanceiroPage() {
                   name="date"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel className="text-primary-foreground/90 flex items-center"><CalendarLucideIcon size={16} className="mr-2"/>Data</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90 flex items-center"><CalendarLucideIcon size={16} className="mr-2"/>Data</RHFFormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -314,7 +315,7 @@ export default function FinanceiroPage() {
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90">Tipo</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90">Tipo</RHFFormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl>
                         <SelectContent>{TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
@@ -329,7 +330,7 @@ export default function FinanceiroPage() {
                 name="originDestination"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-primary-foreground/90">Origem/Destino</FormLabel>
+                    <RHFFormLabel className="text-primary-foreground/90">Origem/Destino</RHFFormLabel>
                     <FormControl><Input placeholder="Ex: Cliente X, Fornecedor Y, Aluguel Escritório" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -340,7 +341,7 @@ export default function FinanceiroPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-primary-foreground/90">Descrição</FormLabel>
+                    <RHFFormLabel className="text-primary-foreground/90">Descrição</RHFFormLabel>
                     <FormControl><Textarea placeholder="Detalhes da movimentação" {...field} className="min-h-[80px]" /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -352,7 +353,7 @@ export default function FinanceiroPage() {
                   name="value"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Valor (R$)</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90 flex items-center"><DollarSign size={16} className="mr-2"/>Valor (R$)</RHFFormLabel>
                       <FormControl><Input type="number" placeholder="150.00" {...field} step="0.01" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,7 +364,7 @@ export default function FinanceiroPage() {
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90">Categoria</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90">Categoria</RHFFormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger></FormControl>
                         <SelectContent>{TRANSACTION_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
@@ -379,7 +380,7 @@ export default function FinanceiroPage() {
                   name="paymentMethod"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90">Forma de Pagamento</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90">Forma de Pagamento</RHFFormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger></FormControl>
                         <SelectContent>{TRANSACTION_PAYMENT_METHODS.map(pm => <SelectItem key={pm} value={pm}>{pm}</SelectItem>)}</SelectContent>
@@ -393,7 +394,7 @@ export default function FinanceiroPage() {
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-primary-foreground/90">Status</FormLabel>
+                      <RHFFormLabel className="text-primary-foreground/90">Status</RHFFormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl>
                         <SelectContent>{TRANSACTION_STATUSES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}</SelectContent>
@@ -408,7 +409,7 @@ export default function FinanceiroPage() {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-primary-foreground/90">Observações (Opcional)</FormLabel>
+                    <RHFFormLabel className="text-primary-foreground/90">Observações (Opcional)</RHFFormLabel>
                     <FormControl><Textarea placeholder="Informações adicionais" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -460,51 +461,51 @@ export default function FinanceiroPage() {
           <CardTitle className="text-xl font-headline flex items-center"><Filter size={20} className="mr-2 text-primary" /> Filtros de Movimentações</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-          <FormItem>
-            <FormLabel>Data Inicial</FormLabel>
+          <div className="space-y-1">
+            <Label htmlFor="filter-start-date">Data Inicial</Label>
              <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !filterStartDate && "text-muted-foreground")}>
+                  <Button id="filter-start-date" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !filterStartDate && "text-muted-foreground")}>
                     <CalendarLucideIcon className="mr-2 h-4 w-4" />
                     {filterStartDate ? format(filterStartDate, "PPP", { locale: ptBR }) : <span>Selecione a data inicial</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterStartDate} onSelect={setFilterStartDate} initialFocus locale={ptBR} /></PopoverContent>
               </Popover>
-          </FormItem>
-          <FormItem>
-            <FormLabel>Data Final</FormLabel>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filter-end-date">Data Final</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !filterEndDate && "text-muted-foreground")}>
+                <Button id="filter-end-date" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !filterEndDate && "text-muted-foreground")}>
                   <CalendarLucideIcon className="mr-2 h-4 w-4" />
                   {filterEndDate ? format(filterEndDate, "PPP", { locale: ptBR }) : <span>Selecione a data final</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} initialFocus locale={ptBR} /></PopoverContent>
             </Popover>
-          </FormItem>
-          <FormItem>
-            <FormLabel>Tipo</FormLabel>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filter-type">Tipo</Label>
             <Select onValueChange={setFilterType} value={filterType}>
-              <SelectTrigger><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
+              <SelectTrigger id="filter-type"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
               <SelectContent><SelectItem value="">Todos os tipos</SelectItem>{TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
             </Select>
-          </FormItem>
-          <FormItem>
-            <FormLabel>Categoria</FormLabel>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filter-category">Categoria</Label>
             <Select onValueChange={setFilterCategory} value={filterCategory}>
-              <SelectTrigger><SelectValue placeholder="Todas as categorias" /></SelectTrigger>
+              <SelectTrigger id="filter-category"><SelectValue placeholder="Todas as categorias" /></SelectTrigger>
               <SelectContent><SelectItem value="">Todas as categorias</SelectItem>{TRANSACTION_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
             </Select>
-          </FormItem>
-          <FormItem>
-            <FormLabel>Status</FormLabel>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="filter-status">Status</Label>
             <Select onValueChange={setFilterStatus} value={filterStatus}>
-              <SelectTrigger><SelectValue placeholder="Todos os status" /></SelectTrigger>
+              <SelectTrigger id="filter-status"><SelectValue placeholder="Todos os status" /></SelectTrigger>
               <SelectContent><SelectItem value="">Todos os status</SelectItem>{TRANSACTION_STATUSES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}</SelectContent>
             </Select>
-          </FormItem>
+          </div>
           <Button onClick={handleExport} variant="outline" className="self-end"><FileOutput size={18} className="mr-2"/>Exportar Filtrados</Button>
         </CardContent>
       </Card>
@@ -619,3 +620,4 @@ export default function FinanceiroPage() {
     </div>
   );
 }
+
