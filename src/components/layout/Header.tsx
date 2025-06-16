@@ -16,10 +16,10 @@ import { useState, useEffect } from 'react';
 
 // Updated navLinks order
 const navLinks = [
+  { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/entrada", label: "Entrada", icon: ArrowRightLeft },
   { href: "/saida", label: "Saída", icon: ArrowRightLeft },
-  { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
@@ -140,4 +140,3 @@ const Header = () => {
 };
 
 export default Header;
-
