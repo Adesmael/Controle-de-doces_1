@@ -111,7 +111,10 @@ export default function RelatoriosPage() {
         setRawProducts(productsFromDB);
         setRawEntries(entriesFromDB.map(e => ({ ...e, date: new Date(e.date) })));
 
-        const clients = Array.from(new Set(salesFromDB.map(s => (s.customerName || s.clientId || '')).filter(Boolean))).sort();
+        const clientIdentifiersForDropdown = salesFromDB
+          .map(s => (s.customerName || s.clientId || '').trim())
+          .filter(Boolean); 
+        const clients = Array.from(new Set(clientIdentifiersForDropdown)).sort((a,b) => a.localeCompare(b));
         setUniqueClients(clients);
         
         const prods = productsFromDB.map(p => ({id: p.id, name: p.name})).sort((a,b) => a.name.localeCompare(b.name));
@@ -130,7 +133,10 @@ export default function RelatoriosPage() {
   const filteredSales = useMemo(() => {
     let tempSales = [...rawSales];
     if (selectedClient !== ALL_FILTER_VALUE) {
-       tempSales = tempSales.filter(s => (s.customerName || s.clientId || '') === selectedClient);
+       tempSales = tempSales.filter(s => {
+         const saleIdentifier = (s.customerName || s.clientId || '').trim();
+         return saleIdentifier === selectedClient;
+       });
     }
     if (selectedProductFilter !== ALL_FILTER_VALUE) {
       tempSales = tempSales.filter(s => s.productId === selectedProductFilter);
@@ -157,8 +163,8 @@ export default function RelatoriosPage() {
     const monthlySalesAgg: { [key: string]: number } = {};
     const sixMonthsAgo = subMonths(new Date(), 5); sixMonthsAgo.setDate(1); sixMonthsAgo.setHours(0,0,0,0);
     allSalesToProcess.forEach(sale => {
-      if (sale.date.getTime() >= sixMonthsAgo.getTime()) {
-        const monthYearKey = format(sale.date, "yyyy-MM");
+      if (new Date(sale.date).getTime() >= sixMonthsAgo.getTime()) {
+        const monthYearKey = format(new Date(sale.date), "yyyy-MM");
         monthlySalesAgg[monthYearKey] = (monthlySalesAgg[monthYearKey] || 0) + sale.totalValue;
       }
     });
@@ -169,8 +175,8 @@ export default function RelatoriosPage() {
     const dailySalesAgg: { [key: string]: number } = {};
     const thirtyDaysAgo = subDays(new Date(), 29); thirtyDaysAgo.setHours(0,0,0,0);
     allSalesToProcess.forEach(sale => {
-      if (sale.date.getTime() >= thirtyDaysAgo.getTime()) {
-        const dayKey = format(sale.date, "yyyy-MM-dd");
+      if (new Date(sale.date).getTime() >= thirtyDaysAgo.getTime()) {
+        const dayKey = format(new Date(sale.date), "yyyy-MM-dd");
         dailySalesAgg[dayKey] = (dailySalesAgg[dayKey] || 0) + sale.totalValue;
       }
     });
@@ -194,7 +200,9 @@ export default function RelatoriosPage() {
       .map(product => ({ name: product.name, stock: product.stock }));
 
     const totalRevenueFromFilteredSales = allSalesToProcess.reduce((sum, sale) => sum + sale.totalValue, 0);
-    const uniqueCustomers = new Set(allSalesToProcess.map(sale => (sale.customerName || sale.clientId || '').toLowerCase().trim()).filter(Boolean));
+    
+    const uniqueCustomerIdentifiers = new Set(allSalesToProcess.map(sale => (sale.customerName || sale.clientId || '').toLowerCase().trim()).filter(Boolean));
+    
     const lowStockItemsCount = productsFromDB.filter(p => p.stock > 0 && p.stock < 10).length;
     
     let totalCostOfAcquisitionsForSummaryCard = 0;
@@ -263,7 +271,7 @@ export default function RelatoriosPage() {
         totalRevenue: totalRevenueFromFilteredSales,
         totalCostOfAcquisitions: totalCostOfAcquisitionsForSummaryCard,
         totalProfitAllProducts: profitForSummaryCard,
-        activeCustomers: uniqueCustomers.size,
+        activeCustomers: uniqueCustomerIdentifiers.size,
         lowStockItemsCount,
         totalUnitsSold: overallTotalUnitsSold,
         numberOfSalesProcessed: allSalesToProcess.length,
