@@ -44,6 +44,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { Label } from "@/components/ui/label"; // Import standard Label
 
+const ALL_FILTER_VALUE = "_ALL_";
 
 const financialTransactionFormSchema = z.object({
   date: z.date({ required_error: "A data é obrigatória." }),
@@ -69,9 +70,9 @@ export default function FinanceiroPage() {
   // Filter states
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [filterType, setFilterType] = useState<string>("");
-  const [filterCategory, setFilterCategory] = useState<string>("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterType, setFilterType] = useState<string>(ALL_FILTER_VALUE);
+  const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
 
   const fetchTransactions = async () => {
     setIsLoading(true);
@@ -187,9 +188,9 @@ export default function FinanceiroPage() {
       
       if (start && transactionDate < start) return false;
       if (end && transactionDate > end) return false;
-      if (filterType && t.type !== filterType) return false;
-      if (filterCategory && t.category !== filterCategory) return false;
-      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterType !== ALL_FILTER_VALUE && t.type !== filterType) return false;
+      if (filterCategory !== ALL_FILTER_VALUE && t.category !== filterCategory) return false;
+      if (filterStatus !== ALL_FILTER_VALUE && t.status !== filterStatus) return false;
       return true;
     });
   }, [transactions, filterStartDate, filterEndDate, filterType, filterCategory, filterStatus]);
@@ -489,21 +490,21 @@ export default function FinanceiroPage() {
             <Label htmlFor="filter-type">Tipo</Label>
             <Select onValueChange={setFilterType} value={filterType}>
               <SelectTrigger id="filter-type"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
-              <SelectContent><SelectItem value="">Todos os tipos</SelectItem>{TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value={ALL_FILTER_VALUE}>Todos os tipos</SelectItem>{TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
             <Label htmlFor="filter-category">Categoria</Label>
             <Select onValueChange={setFilterCategory} value={filterCategory}>
               <SelectTrigger id="filter-category"><SelectValue placeholder="Todas as categorias" /></SelectTrigger>
-              <SelectContent><SelectItem value="">Todas as categorias</SelectItem>{TRANSACTION_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value={ALL_FILTER_VALUE}>Todas as categorias</SelectItem>{TRANSACTION_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
             <Label htmlFor="filter-status">Status</Label>
             <Select onValueChange={setFilterStatus} value={filterStatus}>
               <SelectTrigger id="filter-status"><SelectValue placeholder="Todos os status" /></SelectTrigger>
-              <SelectContent><SelectItem value="">Todos os status</SelectItem>{TRANSACTION_STATUSES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value={ALL_FILTER_VALUE}>Todos os status</SelectItem>{TRANSACTION_STATUSES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <Button onClick={handleExport} variant="outline" className="self-end"><FileOutput size={18} className="mr-2"/>Exportar Filtrados</Button>
@@ -620,4 +621,3 @@ export default function FinanceiroPage() {
     </div>
   );
 }
-
