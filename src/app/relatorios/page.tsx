@@ -284,21 +284,65 @@ export default function RelatoriosPage() {
 
   const chartLabelFormatter = (value: number) => isMounted && value > 0 ? String(Math.round(value)) : '';
   
-  const chartCurrencyLabelFormatter = (value: number) => {
-    if (typeof value !== 'number') {
-      return ''; 
+  const chartCurrencyLabelFormatter = (value: any): string => {
+    const SANE_DEFAULT_AXIS_TICK = '0';
+
+    if (value === null || value === undefined) {
+      return SANE_DEFAULT_AXIS_TICK;
     }
+
+    let numValue = Number(value);
+
+    if (isNaN(numValue)) {
+      if (typeof value === 'string') {
+        const cleanedValue = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+        numValue = parseFloat(cleanedValue);
+        if (isNaN(numValue)) {
+          return SANE_DEFAULT_AXIS_TICK; 
+        }
+      } else {
+        return SANE_DEFAULT_AXIS_TICK; 
+      }
+    }
+
     if (!isMounted) {
-      return `R$${value.toFixed(0)}`;
+      return numValue.toFixed(0);
+    } else {
+      return numValue.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 0,
+      });
     }
-    return value.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 0,
-    });
   };
 
-  const chartSmallCurrencyLabelFormatter = (value: number) => isMounted && value !== undefined ? `R$${Number(value).toFixed(0)}` : '';
+  const chartSmallCurrencyLabelFormatter = (value: any): string => {
+    const SANE_DEFAULT_LABEL = ''; 
+
+    if (value === null || value === undefined) {
+      return SANE_DEFAULT_LABEL;
+    }
+
+    let numValue = Number(value);
+
+    if (isNaN(numValue)) {
+      if (typeof value === 'string') {
+        const cleanedValue = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+        numValue = parseFloat(cleanedValue);
+        if (isNaN(numValue)) {
+          return SANE_DEFAULT_LABEL;
+        }
+      } else {
+        return SANE_DEFAULT_LABEL;
+      }
+    }
+    
+    if (!isMounted) {
+      return numValue.toFixed(0);
+    } else {
+      return `R$ ${numValue.toFixed(0)}`;
+    }
+  };
 
 
   const renderChartOrMessage = (data: any[], chartComponent: React.ReactNode, message: string, minHeight: string = "h-[350px]") => {
