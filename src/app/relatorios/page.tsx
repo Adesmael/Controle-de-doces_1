@@ -283,7 +283,21 @@ export default function RelatoriosPage() {
 
 
   const chartLabelFormatter = (value: number) => isMounted && value > 0 ? String(Math.round(value)) : '';
-  const chartCurrencyLabelFormatter = (value: number) => isMounted && value !== undefined ? `R$${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : '';
+  
+  const chartCurrencyLabelFormatter = (value: number) => {
+    if (typeof value !== 'number') {
+      return ''; 
+    }
+    if (!isMounted) {
+      return `R$${value.toFixed(0)}`;
+    }
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+  };
+
   const chartSmallCurrencyLabelFormatter = (value: number) => isMounted && value !== undefined ? `R$${Number(value).toFixed(0)}` : '';
 
 
