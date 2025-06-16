@@ -9,7 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
+} from "@/components/ui/sheet";
 import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
@@ -102,7 +102,7 @@ const Header = () => {
           </Link>
           {/* SSR Desktop Navigation - must match DesktopNav structure and styling */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map(link => {
+            {navLinks.map(link => { // CRITICAL: Uses the top-level navLinks
                 const Icon = link.icon;
                 // Apply -scale-x-100 for "Vendas" icon in SSR block
                 const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
