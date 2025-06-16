@@ -43,7 +43,7 @@ export default function ConfiguracoesPage() {
       URL.revokeObjectURL(url);
       toast({
         title: "Backup Realizado!",
-        description: "Os dados foram exportados com sucesso.",
+        description: "O arquivo de backup foi salvo na pasta 'Downloads' do seu dispositivo. Verifique suas notificações ou o gerenciador de arquivos.",
       });
     } catch (error) {
       console.error("Erro ao fazer backup:", error);
