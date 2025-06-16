@@ -39,12 +39,12 @@ const Header = () => {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const DesktopNav = () => (
-    <nav className="flex items-center space-x-1">
+    <nav className="hidden md:flex items-center space-x-1 bg-primary">
       {navLinks.map(link => {
         const Icon = link.icon;
         const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
-            <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2">
+            <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
             <Link href={link.href} className="flex items-center gap-1.5">
                 {iconElement}
                 <span>{link.label}</span>
@@ -58,13 +58,13 @@ const Header = () => {
   const MobileNav = () => (
     <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden text-card-foreground hover:bg-card/80">
+        <Button variant="ghost" size="icon" className="md:hidden text-primary-foreground hover:bg-primary/80">
           <LayoutGrid size={24} />
           <span className="sr-only">Abrir menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] bg-background p-0">
-        <SheetHeader className="p-4 border-b">
+      <SheetContent side="left" className="w-[280px] bg-card p-0">
+        <SheetHeader className="p-4 border-b border-primary/20">
           <SheetTitle className="flex items-center gap-2 text-xl font-bold text-primary">
             <Banana size={28} />
             <span>Controle de Doces</span>
@@ -75,7 +75,7 @@ const Header = () => {
              const Icon = link.icon;
              const iconElement = link.label === "Saída" ? <Icon size={20} className="-scale-x-100" /> : <Icon size={20} />;
              return (
-                <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2" onClick={closeMobileNav}>
+                <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2 text-card-foreground hover:bg-primary/10 hover:text-primary btn-animated" onClick={closeMobileNav}>
                 <Link href={link.href} className="flex items-center gap-3">
                     {iconElement}
                     <span>{link.label}</span>
@@ -89,19 +89,21 @@ const Header = () => {
   );
 
   if (!hasMounted) {
+    // This block is for server-side rendering and initial client render before hydration.
+    // It should produce the same structure for desktop nav as DesktopNav component.
     return (
-      <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-        <div className="container mx-auto px-8 py-6 flex justify-between items-center">
-          <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
-            <Banana size={32} className="mr-1 text-primary"/>
+      <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
+        <div className="container mx-auto px-8 py-2 flex justify-between items-center">
+          <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-primary-foreground">
+            <Banana size={32} className="mr-1 text-yellow-300"/>
             <span>Controle de Doces</span>
           </Link>
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden md:flex items-center space-x-1 bg-primary">
             {navLinks.map(link => {
                 const Icon = link.icon;
                 const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
-                    <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2">
+                    <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
                     <Link href={link.href} className="flex items-center gap-1.5">
                         {iconElement}
                         <span>{link.label}</span>
@@ -110,16 +112,22 @@ const Header = () => {
                 );
             })}
             </nav>
+             <div className="md:hidden"> {/* Placeholder for mobile trigger to match structure if needed, though MobileNav itself uses Sheet */}
+                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80">
+                    <LayoutGrid size={24} />
+                    <span className="sr-only">Abrir menu</span>
+                </Button>
+            </div>
         </div>
       </header>
     );
   }
 
   return (
-    <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-8 py-6 flex justify-between items-center">
-        <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity">
-          <Banana size={isMobile ? 28 : 32} className="mr-1 text-primary"/>
+    <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
+      <div className="container mx-auto px-8 py-2 flex justify-between items-center">
+        <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-primary-foreground">
+          <Banana size={isMobile ? 28 : 32} className="mr-1 text-yellow-300"/>
            <span>Controle de Doces</span>
         </Link>
         {isMobile ? <MobileNav /> : <DesktopNav />}
@@ -129,3 +137,4 @@ const Header = () => {
 };
 
 export default Header;
+
