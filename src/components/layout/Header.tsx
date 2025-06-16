@@ -88,18 +88,23 @@ const Header = () => {
   );
 
   if (!hasMounted) {
+    // This block attempts to render a consistent desktop header for SSR and initial client paint
     return (
       <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
+        {/* Consistent padding: px-8 py-3 */}
         <div className="container mx-auto px-8 py-3 flex justify-between items-center">
           <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-card-foreground">
-            <Banana size={32} className="mr-1 text-yellow-300"/>
+            <Banana size={32} className="mr-1 text-yellow-300"/> {/* Logo banana icon specific color */}
             <span>Controle de Doces</span>
           </Link>
+          {/* SSR Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => {
                 const Icon = link.icon;
+                // Consistent icon rendering logic
                 const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
+                    // Consistent button styling
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
                     <Link href={link.href} className="flex items-center gap-1.5">
                         {iconElement}
@@ -109,6 +114,7 @@ const Header = () => {
                 );
             })}
             </nav>
+             {/* SSR Mobile Menu Trigger */}
              <div className="md:hidden">
                 <Button variant="ghost" size="icon" className="text-card-foreground hover:bg-card/80">
                     <LayoutGrid size={24} />
@@ -122,8 +128,9 @@ const Header = () => {
 
   return (
     <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-8 py-3 flex justify-between items-center">
+      <div className="container mx-auto px-8 py-3 flex justify-between items-center"> {/* Consistent padding */}
         <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-card-foreground">
+          {/* Consistent icon size for desktop and specific color */}
           <Banana size={isMobile ? 28 : 32} className="mr-1 text-yellow-300"/>
            <span>Controle de Doces</span>
         </Link>
