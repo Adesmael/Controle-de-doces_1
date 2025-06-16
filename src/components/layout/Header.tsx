@@ -18,9 +18,9 @@ import { useState, useEffect } from 'react';
 const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
+  { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/entrada", label: "Entrada", icon: ArrowRightLeft },
   { href: "/saida", label: "Saída", icon: ArrowRightLeft },
-  { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
