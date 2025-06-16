@@ -14,12 +14,13 @@ import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
 
+// Define navLinks once at the top level
 const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/entrada", label: "Compras", icon: ArrowRightLeft }, // Label updated
-  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },    // Label updated
+  { href: "/entrada", label: "Compras", icon: ArrowRightLeft },
+  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -41,7 +42,7 @@ const Header = () => {
     <nav className="hidden md:flex items-center space-x-1">
       {navLinks.map(link => {
         const Icon = link.icon;
-        // Apply -scale-x-100 for "Vendas" icon, which was formerly "Saída"
+        // Apply -scale-x-100 for "Vendas" icon
         const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
             <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
@@ -90,7 +91,7 @@ const Header = () => {
   );
 
   if (!hasMounted) {
-    // This block attempts to render a consistent desktop header for SSR and initial client paint
+    // This block renders a consistent desktop header for SSR and initial client paint
     return (
       <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
         {/* Consistent padding: px-8 py-3 */}
