@@ -22,8 +22,8 @@ const navLinks = [
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
