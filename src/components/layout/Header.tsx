@@ -14,13 +14,12 @@ import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
 
-// Updated navLinks order
 const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/entrada", label: "Entrada", icon: ArrowRightLeft },
-  { href: "/saida", label: "Saída", icon: ArrowRightLeft },
+  { href: "/entrada", label: "Compras", icon: ArrowRightLeft },
+  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -42,7 +41,7 @@ const Header = () => {
     <nav className="hidden md:flex items-center space-x-1">
       {navLinks.map(link => {
         const Icon = link.icon;
-        const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
+        const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
             <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
             <Link href={link.href} className="flex items-center gap-1.5">
@@ -73,7 +72,7 @@ const Header = () => {
         <nav className="flex flex-col p-4 space-y-2">
           {navLinks.map(link => {
              const Icon = link.icon;
-             const iconElement = link.label === "Saída" ? <Icon size={20} className="-scale-x-100" /> : <Icon size={20} />;
+             const iconElement = link.label === "Vendas" ? <Icon size={20} className="-scale-x-100" /> : <Icon size={20} />;
              return (
                 <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2 text-card-foreground hover:bg-primary/10 hover:text-primary btn-animated" onClick={closeMobileNav}>
                 <Link href={link.href} className="flex items-center gap-3">
@@ -102,7 +101,7 @@ const Header = () => {
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => {
                 const Icon = link.icon;
-                const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
+                const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
                     <Link href={link.href} className="flex items-center gap-1.5">
