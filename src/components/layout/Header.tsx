@@ -18,8 +18,8 @@ const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/entrada", label: "Compras", icon: ArrowRightLeft },
-  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },
+  { href: "/entrada", label: "Compras", icon: ArrowRightLeft }, // Label updated
+  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },    // Label updated
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -41,6 +41,7 @@ const Header = () => {
     <nav className="hidden md:flex items-center space-x-1">
       {navLinks.map(link => {
         const Icon = link.icon;
+        // Apply -scale-x-100 for "Vendas" icon, which was formerly "Saída"
         const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
             <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
@@ -72,6 +73,7 @@ const Header = () => {
         <nav className="flex flex-col p-4 space-y-2">
           {navLinks.map(link => {
              const Icon = link.icon;
+             // Apply -scale-x-100 for "Vendas" icon in mobile nav as well
              const iconElement = link.label === "Vendas" ? <Icon size={20} className="-scale-x-100" /> : <Icon size={20} />;
              return (
                 <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2 text-card-foreground hover:bg-primary/10 hover:text-primary btn-animated" onClick={closeMobileNav}>
@@ -101,6 +103,7 @@ const Header = () => {
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => {
                 const Icon = link.icon;
+                // Apply -scale-x-100 for "Vendas" icon in SSR block
                 const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
@@ -126,9 +129,8 @@ const Header = () => {
 
   return (
     <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-8 py-3 flex justify-between items-center"> {/* Consistent padding */}
+      <div className="container mx-auto px-8 py-3 flex justify-between items-center">
         <Link href="/produtos" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-card-foreground">
-          {/* Consistent icon size for desktop and specific color */}
           <Banana size={isMobile ? 28 : 32} className="mr-1 text-yellow-300"/>
            <span>Controle de Doces</span>
         </Link>
