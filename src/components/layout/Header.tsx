@@ -14,7 +14,7 @@ import { Button } from '../ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
 
-// Define navLinks ONCE at the top level with the correct order and labels
+// Define navLinks ONCE at the top level with the correct order, labels, and hrefs
 const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
@@ -100,12 +100,13 @@ const Header = () => {
           </Link>
           {/* SSR Desktop Navigation - must match DesktopNav structure and styling */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map(link => {
+            {navLinks.map(link => { // Ensure this uses the globally defined navLinks
                 const Icon = link.icon;
                 // Apply -scale-x-100 for "Vendas" icon in SSR block
                 const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
+                    {/* Ensure this Link uses link.href from the global navLinks */}
                     <Link href={link.href} className="flex items-center gap-1.5">
                         {iconElement}
                         <span>{link.label}</span>
