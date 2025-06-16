@@ -1,4 +1,11 @@
 
+import type {
+  FinancialTransactionType,
+  FinancialTransactionCategory,
+  FinancialTransactionPaymentMethod,
+  FinancialTransactionStatus
+} from './finance-constants';
+
 export interface Product {
   id: string;
   name: string;
@@ -18,33 +25,33 @@ export interface Promotion {
 
 export interface EntryFormValues {
   date: Date;
-  supplierId: string; 
+  supplierId: string;
   productId: string;
   quantity: number;
   unitPrice: number; // Represents the cost per unit (Custo Unitário)
 }
 
-export interface Entry extends Omit<EntryFormValues, 'supplierId'> { 
+export interface Entry extends Omit<EntryFormValues, 'supplierId'> {
   id: string;
-  supplierId: string; 
-  supplierName?: string; 
+  supplierId: string;
+  supplierName?: string;
   totalValue: number; // Represents total cost (quantity * unitPrice)
   productName?: string;
 }
 
 export interface SaleFormValues {
   date: Date;
-  clientId: string; // Changed from customer: string
+  clientId: string;
   productId: string;
   quantity: number;
   unitPrice: number; // Represents the selling price per unit (Preço de Venda Unitário)
   discount: number;
 }
 
-export interface Sale extends Omit<SaleFormValues, 'clientId'> { // Omitted clientId to avoid duplication
+export interface Sale extends Omit<SaleFormValues, 'clientId'> {
   id: string;
-  clientId: string; // Added clientId
-  customerName?: string; // Added customerName for display
+  clientId: string;
+  customerName?: string;
   totalValue: number; // Represents total revenue for this sale ((quantity * unitPrice) - discount)
   productName?: string;
 }
@@ -103,3 +110,19 @@ export interface Supplier extends SupplierFormValues {
   id: string;
 }
 
+// Financial Transaction Types
+export interface FinancialTransactionFormValues {
+  date: Date;
+  type: FinancialTransactionType;
+  originDestination: string; // Nome do cliente, fornecedor ou destino da movimentação
+  description: string;
+  value: number;
+  category: FinancialTransactionCategory;
+  paymentMethod: FinancialTransactionPaymentMethod;
+  status: FinancialTransactionStatus;
+  notes?: string; // Observações
+}
+
+export interface FinancialTransaction extends FinancialTransactionFormValues {
+  id: string;
+}

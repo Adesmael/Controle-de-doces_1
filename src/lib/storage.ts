@@ -1,14 +1,15 @@
 
-import type { Product, Entry, Sale, Client, Supplier } from './types';
+import type { Product, Entry, Sale, Client, Supplier, FinancialTransaction } from './types';
 import { initialProductsData } from './products';
 
 const DB_NAME = 'ControleDocesDB';
-const DB_VERSION = 2; // Incremented version due to new object stores
+const DB_VERSION = 3; // Incremented version due to new financialTransactions object store
 const STORE_PRODUCTS = 'products';
 const STORE_ENTRIES = 'entries';
 const STORE_SALES = 'sales';
 const STORE_CLIENTS = 'clients';
 const STORE_SUPPLIERS = 'suppliers';
+const STORE_FINANCIAL_TRANSACTIONS = 'financialTransactions';
 
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -47,6 +48,13 @@ const openDB = (): Promise<IDBDatabase> => {
         const supplierStore = db.createObjectStore(STORE_SUPPLIERS, { keyPath: 'id' });
         supplierStore.createIndex('supplierName', 'supplierName', { unique: false });
         supplierStore.createIndex('registrationDate', 'registrationDate', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_FINANCIAL_TRANSACTIONS)) {
+        const financialStore = db.createObjectStore(STORE_FINANCIAL_TRANSACTIONS, { keyPath: 'id' });
+        financialStore.createIndex('date', 'date', { unique: false });
+        financialStore.createIndex('type', 'type', { unique: false });
+        financialStore.createIndex('category', 'category', { unique: false });
+        financialStore.createIndex('status', 'status', { unique: false });
       }
     };
 
@@ -149,7 +157,7 @@ export const deleteSale = (id: string): Promise<void> => deleteItem(STORE_SALES,
 // Client Management functions
 export const getClients = async (): Promise<Client[]> => {
     const clients = await getAll<Client>(STORE_CLIENTS);
-    return clients.map(client => ({ ...client, registrationDate: new Date(client.registrationDate) })).sort((a,b) => a.companyName.localeCompare(b.companyName));
+    return clients.map(client => ({ ...client, registrationDate: new Date(client.registrationDate) })).sort((a,b) => (a.tradingName || a.companyName).localeCompare(b.tradingName || b.companyName));
 };
 export const getClientById = (id: string): Promise<Client | undefined> => getById<Client>(STORE_CLIENTS, id);
 export const addClient = (client: Client): Promise<IDBValidKey> => add<Client>(STORE_CLIENTS, client);
@@ -165,6 +173,18 @@ export const getSupplierById = (id: string): Promise<Supplier | undefined> => ge
 export const addSupplier = (supplier: Supplier): Promise<IDBValidKey> => add<Supplier>(STORE_SUPPLIERS, supplier);
 export const updateSupplier = (supplier: Supplier): Promise<IDBValidKey> => put<Supplier>(STORE_SUPPLIERS, supplier);
 export const deleteSupplier = (id: string): Promise<void> => deleteItem(STORE_SUPPLIERS, id);
+
+// Financial Transaction Management functions
+export const getFinancialTransactions = async (): Promise<FinancialTransaction[]> => {
+    const transactions = await getAll<FinancialTransaction>(STORE_FINANCIAL_TRANSACTIONS);
+    // Ensure date is a Date object and sort by date descending
+    return transactions
+        .map(transaction => ({ ...transaction, date: new Date(transaction.date) }))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+};
+export const addFinancialTransaction = (transaction: FinancialTransaction): Promise<IDBValidKey> => add<FinancialTransaction>(STORE_FINANCIAL_TRANSACTIONS, transaction);
+export const updateFinancialTransaction = (transaction: FinancialTransaction): Promise<IDBValidKey> => put<FinancialTransaction>(STORE_FINANCIAL_TRANSACTIONS, transaction);
+export const deleteFinancialTransaction = (id: string): Promise<void> => deleteItem(STORE_FINANCIAL_TRANSACTIONS, id);
 
 
 // Function to initialize products if DB is empty
@@ -225,19 +245,21 @@ export interface BackupData {
   products: Product[];
   entries: Entry[];
   sales: Sale[];
-  clients?: Client[]; // Optional for backward compatibility
-  suppliers?: Supplier[]; // Optional for backward compatibility
+  clients?: Client[];
+  suppliers?: Supplier[];
+  financialTransactions?: FinancialTransaction[];
 }
 
 export const getBackupData = async (): Promise<BackupData> => {
-  const [products, entries, sales, clients, suppliers] = await Promise.all([
+  const [products, entries, sales, clients, suppliers, financialTransactions] = await Promise.all([
     getProducts(),
     getEntries(),
     getSales(),
     getClients(),
     getSuppliers(),
+    getFinancialTransactions(),
   ]);
-  return { products, entries, sales, clients, suppliers };
+  return { products, entries, sales, clients, suppliers, financialTransactions };
 };
 
 export const restoreBackupData = async (data: BackupData): Promise<void> => {
@@ -255,17 +277,18 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     });
   };
 
-  const populateStore = async <T extends { id: string }>(storeName: string, items: T[] | undefined) => {
-    if (!items) return; // Skip if data for this store is not in backup
+  const populateStore = async <T extends { id?: string, date?: Date, registrationDate?: Date }>(storeName: string, items: T[] | undefined) => {
+    if (!items) return;
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);
     for (const item of items) {
-      let itemToAdd = item;
-      if ((storeName === STORE_ENTRIES || storeName === STORE_SALES || storeName === STORE_CLIENTS || storeName === STORE_SUPPLIERS) && (item as any).date && typeof (item as any).date === 'string') {
-        itemToAdd = { ...item, date: new Date((item as any).date) };
+      let itemToAdd = { ...item };
+      // Ensure dates are Date objects
+      if (item.date && typeof item.date === 'string') {
+        itemToAdd.date = new Date(item.date);
       }
-       if ((storeName === STORE_CLIENTS || storeName === STORE_SUPPLIERS) && (item as any).registrationDate && typeof (item as any).registrationDate === 'string') {
-        itemToAdd = { ...item, registrationDate: new Date((item as any).registrationDate) };
+      if (item.registrationDate && typeof item.registrationDate === 'string') {
+        itemToAdd.registrationDate = new Date(item.registrationDate);
       }
       const request = store.add(itemToAdd);
       await new Promise<void>((resolve, reject) => {
@@ -296,6 +319,10 @@ export const restoreBackupData = async (data: BackupData): Promise<void> => {
     if (data.suppliers) {
       await clearStore(STORE_SUPPLIERS);
       await populateStore(STORE_SUPPLIERS, data.suppliers);
+    }
+    if (data.financialTransactions) {
+        await clearStore(STORE_FINANCIAL_TRANSACTIONS);
+        await populateStore(STORE_FINANCIAL_TRANSACTIONS, data.financialTransactions);
     }
 
   } catch (error) {
