@@ -97,14 +97,12 @@ const Header = () => {
             <Banana size={32} className="mr-1 text-yellow-300"/> {/* Logo banana icon specific color */}
             <span>Controle de Doces</span>
           </Link>
-          {/* SSR Desktop Navigation */}
+          {/* SSR Desktop Navigation - must match DesktopNav structure and styling */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => {
                 const Icon = link.icon;
-                // Consistent icon rendering logic
                 const iconElement = link.label === "Saída" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
-                    // Consistent button styling
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
                     <Link href={link.href} className="flex items-center gap-1.5">
                         {iconElement}
