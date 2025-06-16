@@ -104,7 +104,7 @@ const Header = () => {
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => { // CRITICAL: Uses the top-level navLinks
                 const Icon = link.icon;
-                // Apply -scale-x-100 for "Vendas" icon in SSR block
+                // Apply -scale-x-100 for "Vendas" icon in SSR block (Line 108 context)
                 const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
