@@ -211,15 +211,15 @@ export default function EntradaPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="max-w-3xl mx-auto shadow-xl">
-        <CardHeader className="bg-card text-card-foreground">
+        <CardHeader className="bg-primary/10">
           <div className="flex items-center gap-3">
             <LogIn size={32} className="text-primary" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
-              Registro de Entrada de Produtos (Custos)
+              Registro de Compras (Custos)
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Preencha o formulário para registrar novas entradas de produtos no estoque, incluindo seus custos de aquisição.
+            Preencha o formulário para registrar novas compras de produtos para o estoque, incluindo seus custos de aquisição.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -230,7 +230,7 @@ export default function EntradaPage() {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel className="text-primary-foreground/90">Data da Entrada</FormLabel>
+                    <FormLabel className="text-primary-foreground/90">Data da Compra</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -355,7 +355,7 @@ export default function EntradaPage() {
               </FormItem>
 
               <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
-                {isSubmitting && !entryToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Entrada</>}
+                {isSubmitting && !entryToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Compra</>}
               </Button>
             </form>
           </Form>
@@ -365,9 +365,9 @@ export default function EntradaPage() {
       {entries.length > 0 && (
         <Card className="max-w-5xl mx-auto shadow-xl">
           <CardHeader>
-            <CardTitle className="text-xl font-headline text-primary-foreground">Entradas Registradas ({entries.length})</CardTitle>
+            <CardTitle className="text-xl font-headline text-primary-foreground">Compras Registradas ({entries.length})</CardTitle>
             <CardDescription className="text-primary-foreground/80">
-              Visualize as entradas de produtos mais recentes.
+              Visualize as compras de produtos mais recentes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -386,7 +386,7 @@ export default function EntradaPage() {
               <TableBody>
                 {entries.map((entry) => (<TableRow key={entry.id}><TableCell>{format(entry.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell><TableCell>{entry.supplierName || entry.supplierId}</TableCell><TableCell>{entry.productName}</TableCell><TableCell className="text-right">{entry.quantity}</TableCell><TableCell className="text-right">R$ {entry.unitPrice.toFixed(2)}</TableCell><TableCell className="text-right font-medium">R$ {entry.totalValue.toFixed(2)}</TableCell><TableCell className="text-center"><Button variant="ghost" size="sm" onClick={() => handleDeleteClick(entry)} disabled={isSubmitting} className="text-destructive hover:text-destructive/80"><Trash2 size={16}/></Button></TableCell></TableRow>))}
               </TableBody>
-               <TableCaption>Lista das últimas entradas de produtos. "Custo Unit." refere-se ao custo de aquisição do produto.</TableCaption>
+               <TableCaption>Lista das últimas compras de produtos. "Custo Unit." refere-se ao custo de aquisição do produto.</TableCaption>
             </Table>
           </CardContent>
         </Card>
@@ -395,16 +395,16 @@ export default function EntradaPage() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => { if(!isSubmitting) setShowDeleteConfirm(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Entrada</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Compra</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta entrada de "{entryToDelete?.productName}" do fornecedor "{entryToDelete?.supplierName || entryToDelete?.supplierId}"?
+              Tem certeza que deseja excluir esta compra de "{entryToDelete?.productName}" do fornecedor "{entryToDelete?.supplierName || entryToDelete?.supplierId}"?
               Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { if(!isSubmitting) setEntryToDelete(null);}} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteEntry} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
-              {isSubmitting && entryToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Entrada"}
+              {isSubmitting && entryToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Compra"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -413,3 +413,4 @@ export default function EntradaPage() {
     </div>
   );
 }
+

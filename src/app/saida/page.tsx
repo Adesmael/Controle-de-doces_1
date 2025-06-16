@@ -21,13 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowRightLeft, PlusCircle, DollarSign, Package, CalendarIcon as CalendarLucideIcon, Hash, User, Percent, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Sale, SaleFormValues, Client } from "@/lib/types"; // Added Client
+import type { Product, Sale, SaleFormValues, Client } from "@/lib/types"; 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getProducts, getSales, addSale, getProductById, updateProduct, deleteSale, getClients } from "@/lib/storage"; // Added getClients
+import { getProducts, getSales, addSale, getProductById, updateProduct, deleteSale, getClients } from "@/lib/storage"; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +43,7 @@ const saleFormSchema = z.object({
   date: z.date({
     required_error: "A data da saída é obrigatória.",
   }),
-  clientId: z.string().min(1, { // Changed from customer to clientId
+  clientId: z.string().min(1, { 
     message: "Selecione um cliente.",
   }),
   productId: z.string().min(1, {
@@ -65,7 +65,7 @@ export default function SaidaPage() {
   const { toast } = useToast();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [clientsList, setClientsList] = useState<Client[]>([]); // State for clients
+  const [clientsList, setClientsList] = useState<Client[]>([]); 
   const [calculatedTotalValue, setCalculatedTotalValue] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,14 +76,14 @@ export default function SaidaPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [storedProducts, storedSales, storedClients] = await Promise.all([ // Added getClients
+      const [storedProducts, storedSales, storedClients] = await Promise.all([ 
         getProducts(),
         getSales(),
         getClients() 
       ]);
       setProducts(storedProducts.sort((a,b) => a.name.localeCompare(b.name)));
       setSales(storedSales.map(s => ({...s, date: new Date(s.date)}))); 
-      setClientsList(storedClients.sort((a,b) => (a.tradingName || a.companyName).localeCompare(b.tradingName || b.companyName))); // Set clients
+      setClientsList(storedClients.sort((a,b) => (a.tradingName || a.companyName).localeCompare(b.tradingName || b.companyName))); 
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({ title: "Erro ao Carregar Dados", description: "Não foi possível buscar produtos, saídas ou clientes.", variant: "destructive" });
@@ -101,7 +101,7 @@ export default function SaidaPage() {
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
       date: new Date(),
-      clientId: "", // Changed from customer
+      clientId: "", 
       productId: "",
       quantity: 1,
       unitPrice: 0,
@@ -149,14 +149,14 @@ export default function SaidaPage() {
     setIsSubmitting(true);
     try {
       const selectedProduct = await getProductById(data.productId);
-      const selectedClient = clientsList.find(c => c.id === data.clientId); // Get selected client
+      const selectedClient = clientsList.find(c => c.id === data.clientId); 
 
       if (!selectedProduct) {
           toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
           setIsSubmitting(false);
           return;
       }
-      if (!selectedClient) { // Check if client is found
+      if (!selectedClient) { 
           toast({ title: "Erro", description: "Cliente não encontrado.", variant: "destructive" });
           setIsSubmitting(false);
           return;
@@ -173,7 +173,7 @@ export default function SaidaPage() {
         id: String(Date.now()),
         date: data.date,
         clientId: data.clientId,
-        customerName: selectedClient.tradingName || selectedClient.companyName, // Store client name
+        customerName: selectedClient.tradingName || selectedClient.companyName, 
         productId: data.productId,
         productName: selectedProduct.name,
         quantity: data.quantity,
@@ -191,14 +191,14 @@ export default function SaidaPage() {
       await updateProduct(updatedProductStock);
 
       toast({
-        title: "Saída Registrada!",
-        description: `Saída de ${data.quantity}x ${selectedProduct.name} para ${selectedClient.tradingName || selectedClient.companyName} registrada. Estoque atualizado.`,
+        title: "Venda Registrada!",
+        description: `Venda de ${data.quantity}x ${selectedProduct.name} para ${selectedClient.tradingName || selectedClient.companyName} registrada. Estoque atualizado.`,
       });
 
       await fetchData(); 
       form.reset({
         date: new Date(),
-        clientId: "", // Reset clientId
+        clientId: "", 
         productId: "",
         quantity: 1,
         unitPrice: 0,
@@ -208,7 +208,7 @@ export default function SaidaPage() {
 
     } catch (error) {
       console.error("Failed to register sale:", error);
-      toast({ title: "Erro ao Registrar Saída", description: "Não foi possível salvar a saída.", variant: "destructive" });
+      toast({ title: "Erro ao Registrar Venda", description: "Não foi possível salvar a venda.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -230,14 +230,14 @@ export default function SaidaPage() {
           await updateProduct({ ...productToUpdate, stock: productToUpdate.stock + saleToDelete.quantity });
         }
         toast({
-          title: "Saída Excluída!",
-          description: `A saída de ${saleToDelete.productName} foi removida. Estoque atualizado.`,
+          title: "Venda Excluída!",
+          description: `A venda de ${saleToDelete.productName} foi removida. Estoque atualizado.`,
           variant: "destructive"
         });
         await fetchData();
       } catch (error) {
         console.error("Failed to delete sale:", error);
-        toast({ title: "Erro ao Excluir Saída", description: "Não foi possível excluir a saída.", variant: "destructive" });
+        toast({ title: "Erro ao Excluir Venda", description: "Não foi possível excluir a venda.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
         setSaleToDelete(null);
@@ -260,11 +260,11 @@ export default function SaidaPage() {
           <div className="flex items-center gap-3">
             <ArrowRightLeft size={32} className="text-primary -scale-x-100" />
             <CardTitle className="text-2xl font-headline text-primary-foreground">
-              Registro de Saída de Produtos
+              Registro de Vendas de Produtos
             </CardTitle>
           </div>
           <CardDescription className="text-primary-foreground/80">
-            Preencha o formulário para registrar novas saídas (vendas) de produtos.
+            Preencha o formulário para registrar novas vendas de produtos.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -275,7 +275,7 @@ export default function SaidaPage() {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel className="text-primary-foreground/90">Data da Saída</FormLabel>
+                    <FormLabel className="text-primary-foreground/90">Data da Venda</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -315,7 +315,7 @@ export default function SaidaPage() {
 
               <FormField
                 control={form.control}
-                name="clientId" // Changed from customer to clientId
+                name="clientId" 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-primary-foreground/90 flex items-center"><User size={16} className="mr-2"/>Cliente</FormLabel>
@@ -413,7 +413,7 @@ export default function SaidaPage() {
               </FormItem>
 
               <Button type="submit" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 btn-animated" disabled={isSubmitting}>
-                 {isSubmitting && !saleToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Saída</>}
+                 {isSubmitting && !saleToDelete ? <Loader2 className="animate-spin" /> : <><PlusCircle size={18} className="mr-2" /> Registrar Venda</>}
               </Button>
             </form>
           </Form>
@@ -423,9 +423,9 @@ export default function SaidaPage() {
       {sales.length > 0 && (
         <Card className="max-w-5xl mx-auto shadow-xl">
           <CardHeader>
-            <CardTitle className="text-xl font-headline text-primary-foreground">Saídas Registradas ({sales.length})</CardTitle>
+            <CardTitle className="text-xl font-headline text-primary-foreground">Vendas Registradas ({sales.length})</CardTitle>
             <CardDescription className="text-primary-foreground/80">
-              Visualize as saídas de produtos mais recentes.
+              Visualize as vendas de produtos mais recentes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -445,7 +445,7 @@ export default function SaidaPage() {
               <TableBody>
                 {sales.map((sale) => (<TableRow key={sale.id}><TableCell>{format(sale.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell><TableCell>{sale.customerName || sale.clientId}</TableCell><TableCell>{sale.productName}</TableCell><TableCell className="text-right">{sale.quantity}</TableCell><TableCell className="text-right">R$ {sale.unitPrice.toFixed(2)}</TableCell><TableCell className="text-right">R$ {sale.discount.toFixed(2)}</TableCell><TableCell className="text-right font-medium">R$ {sale.totalValue.toFixed(2)}</TableCell><TableCell className="text-center"><Button variant="ghost" size="sm" onClick={() => handleDeleteClick(sale)} disabled={isSubmitting} className="text-destructive hover:bg-destructive/80"><Trash2 size={16}/></Button></TableCell></TableRow>))}
               </TableBody>
-               <TableCaption>Lista das últimas saídas de produtos.</TableCaption>
+               <TableCaption>Lista das últimas vendas de produtos.</TableCaption>
             </Table>
           </CardContent>
         </Card>
@@ -454,16 +454,16 @@ export default function SaidaPage() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => { if(!isSubmitting) setShowDeleteConfirm(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Saída</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="text-destructive mr-2"/>Confirmar Exclusão de Venda</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta saída de "{saleToDelete?.productName}" para o cliente "{saleToDelete?.customerName || saleToDelete?.clientId}"?
+              Tem certeza que deseja excluir esta venda de "{saleToDelete?.productName}" para o cliente "{saleToDelete?.customerName || saleToDelete?.clientId}"?
               Esta ação não pode ser desfeita e <strong className="text-destructive">ajustará o estoque do produto</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { if(!isSubmitting) setSaleToDelete(null);}} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteSale} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
-              {isSubmitting && saleToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Saída"}
+              {isSubmitting && saleToDelete ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Excluir Venda"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -19,8 +19,8 @@ const navLinks = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/compras", label: "Compras", icon: ArrowRightLeft }, // Changed from Entrada
-  { href: "/vendas", label: "Vendas", icon: ArrowRightLeft },   // Changed from Saida, icon will be flipped
+  { href: "/entrada", label: "Compras", icon: ArrowRightLeft }, // Corrected href
+  { href: "/saida", label: "Vendas", icon: ArrowRightLeft },   // Corrected href, icon will be flipped
   { href: "/estoque", label: "Estoque", icon: LayoutGrid },
   { href: "/financeiro", label: "Financeiro", icon: Banknote },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -42,7 +42,6 @@ const Header = () => {
     <nav className="hidden md:flex items-center space-x-1">
       {navLinks.map(link => {
         const Icon = link.icon;
-        // Apply -scale-x-100 for "Vendas" icon
         const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
         return (
             <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
@@ -74,7 +73,6 @@ const Header = () => {
         <nav className="flex flex-col p-4 space-y-2">
           {navLinks.map(link => {
              const Icon = link.icon;
-             // Apply -scale-x-100 for "Vendas" icon in mobile nav as well
              const iconElement = link.label === "Vendas" ? <Icon size={20} className="-scale-x-100" /> : <Icon size={20} />;
              return (
                 <Button key={link.href} variant="ghost" asChild className="justify-start text-md px-3 py-2 text-card-foreground hover:bg-primary/10 hover:text-primary btn-animated" onClick={closeMobileNav}>
@@ -102,9 +100,9 @@ const Header = () => {
           </Link>
           {/* SSR Desktop Navigation - must match DesktopNav structure and styling */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map(link => { // CRITICAL: Uses the top-level navLinks
+            {navLinks.map(link => {
                 const Icon = link.icon;
-                // Apply -scale-x-100 for "Vendas" icon in SSR block (Line 108 context)
+                // Apply -scale-x-100 for "Vendas" icon in SSR block
                 const iconElement = link.label === "Vendas" ? <Icon size={16} className="-scale-x-100" /> : <Icon size={16} />;
                 return (
                     <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
