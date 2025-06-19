@@ -3,6 +3,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   output: 'export', // Adicionado para exportação estática
+  trailingSlash: true, // Adicionado para compatibilidade com alguns servidores estáticos/WebViews
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
