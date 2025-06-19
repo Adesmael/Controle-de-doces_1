@@ -94,14 +94,18 @@ const Header = () => {
     </Sheet>
   );
 
+  // Fallback for SSR and initial client render before `hasMounted` is true.
+  // This ensures the server-rendered HTML is consistent and avoids hydration errors
+  // related to `isMobile` which is only known on the client.
   if (!hasMounted) {
     return (
       <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-        <div className="container mx-auto px-8 py-3 flex justify-between items-center">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center"> {/* Changed px-8 to px-4 */}
           <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-card-foreground">
-            <Banana size={32} className="mr-1 text-yellow-300"/>
+            <Banana size={32} className="mr-1 text-yellow-300"/> {/* Default to larger size for SSR */}
             <span>Controle de Doces</span>
           </Link>
+          {/* Render DesktopNav structure for SSR to avoid layout shifts if possible, or a placeholder */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => (
               <Button key={link.href} variant="default" asChild className="text-sm font-medium text-primary-foreground hover:bg-primary/90 btn-animated px-3 py-2 bg-primary">
@@ -112,6 +116,7 @@ const Header = () => {
               </Button>
             ))}
           </nav>
+          {/* Placeholder for mobile trigger to keep structure similar */}
           <div className="md:hidden">
             <Button variant="ghost" size="icon" className="text-card-foreground hover:bg-card/80">
               <LayoutGrid size={24} />
@@ -125,7 +130,7 @@ const Header = () => {
 
   return (
     <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-8 py-3 flex justify-between items-center">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center"> {/* Changed px-8 to px-4 */}
         <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold font-headline hover:opacity-80 transition-opacity text-card-foreground">
           <Banana size={isMobile ? 28 : 32} className="mr-1 text-yellow-300"/>
           <span>Controle de Doces</span>
@@ -137,3 +142,4 @@ const Header = () => {
 };
 
 export default Header;
+
